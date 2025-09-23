@@ -28,7 +28,9 @@
 #include "Common/Crypto/SHA1.h"
 #include "Common/FileUtil.h"
 #include "Common/Hash.h"
+#ifndef DIK_STANDALONE
 #include "Common/HttpRequest.h"
+#endif
 #include "Common/IOFile.h"
 #include "Common/Logging/Log.h"
 #include "Common/MinizipUtil.h"
@@ -130,6 +132,7 @@ RedumpVerifier::DownloadStatus RedumpVerifier::DownloadDatfile(const std::string
   if (old_status == DownloadStatus::Success || old_status == DownloadStatus::SystemNotAvailable)
     return old_status;
 
+#ifndef DIK_STANDALONE
   Common::HttpRequest request;
 
   const std::optional<std::vector<u8>> result =
@@ -146,8 +149,6 @@ RedumpVerifier::DownloadStatus RedumpVerifier::DownloadDatfile(const std::string
 
   if (result->size() > 1 && (*result)[0] == '<' && (*result)[1] == '!')
   {
-    // This is an HTML page, not a zip file like we want
-
     if (File::Exists(output_path))
       return DownloadStatus::FailButOldCacheAvailable;
 
@@ -160,6 +161,11 @@ RedumpVerifier::DownloadStatus RedumpVerifier::DownloadDatfile(const std::string
   if (!File::IOFile(output_path, "wb").WriteBytes(result->data(), result->size()))
     ERROR_LOG_FMT(DISCIO, "Failed to write downloaded datfile to {}", output_path);
   return DownloadStatus::Success;
+#else
+  const std::string output_path = GetPathForSystem(system);
+  return File::Exists(output_path) ? DownloadStatus::FailButOldCacheAvailable :
+                                     DownloadStatus::SystemNotAvailable;
+#endif
 }
 
 std::vector<u8> RedumpVerifier::ReadDatfile(const std::string& system)

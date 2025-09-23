@@ -1,6 +1,16 @@
 add_library(DiscImageKit STATIC
   src/fs.cpp
   src/Core/IOS/ES/Formats.cpp
+  src/Common/CPUDetect.cpp
+  src/Common/Crypto.cpp
+  src/Common/ColorUtil.cpp
+  src/Common/FileUtil.cpp
+  src/Common/Hash.cpp
+  src/Common/IOFile.cpp
+  src/Common/Log.cpp
+  src/Common/MsgHandler.cpp
+  src/Common/NandPaths.cpp
+  src/Common/StringUtil.cpp
   ../Core/DiscIO/Blob.cpp
   ../Core/DiscIO/CISOBlob.cpp
   ../Core/DiscIO/CompressedBlob.cpp
@@ -59,7 +69,6 @@ target_compile_definitions(DiscImageKit PUBLIC DIK_STANDALONE=1)
 # TODO: Trim dependencies in later phases.
 target_link_libraries(DiscImageKit
   PUBLIC
-    common
     fmt::fmt
     zstd::zstd
     ZLIB::ZLIB
