@@ -82,7 +82,9 @@ if(NOT WIN32 AND NOT APPLE AND NOT HAIKU)
 endif()
 
 if(NOT ANDROID)
-  option(ENABLE_CLI_TOOL "Enable dolphin-tool, a CLI-based utility for functions such as managing disc images" ON)
+option(ENABLE_CLI_TOOL "Enable dolphin-tool, a CLI-based utility for functions such as managing disc images" ON)
+
+option(DOLPHIN_TOOL_STANDALONE "Build minimal DolphinTool with no emulator deps" OFF)
 endif()
 
 
@@ -101,6 +103,9 @@ option(ENABLE_PULSEAUDIO "Enables PulseAudio sound backend" ON)
 option(ENABLE_CUBEB "Enables Cubeb sound backend" ON)
 option(ENABLE_LLVM "Enables LLVM support, for disassembly" ON)
 option(ENABLE_TESTS "Enables building the unit tests" ON)
+if(ENABLE_TESTS)
+  include(CTest)
+endif()
 option(ENABLE_VULKAN "Enables vulkan video backend" ON)
 option(USE_DISCORD_PRESENCE "Enables Discord Rich Presence, show the current game on Discord" ON)
 option(USE_MGBA "Enables GBA controllers emulation using libmgba" ON)

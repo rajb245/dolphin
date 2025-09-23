@@ -1,0 +1,9 @@
+Block Size: 131072
+Compression Method: Zstandard
+Compression Level: 19
+Internal Name: Balloon Pop
+Revision: 0
+Game ID: RB2E6K
+Title ID: 0001000052423245
+Region: NTSC-U
+Country: USA
