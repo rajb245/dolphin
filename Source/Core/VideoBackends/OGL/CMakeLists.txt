@@ -28,7 +28,7 @@ add_library(videoogl
 )
 
 target_link_libraries(videoogl PUBLIC common videocommon)
-if(X11_FOUND)
+if(ENABLE_X11 AND X11_FOUND AND TARGET PkgConfig::X11)
   target_link_libraries(videoogl PRIVATE PkgConfig::X11)
 endif()
 

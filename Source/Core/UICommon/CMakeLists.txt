@@ -46,7 +46,7 @@ if(UNIX AND NOT APPLE AND NOT ANDROID AND ENABLE_QT)
   target_link_libraries(uicommon PUBLIC Qt6::DBus)
 endif()
 
-if(X11_FOUND)
+if(ENABLE_X11 AND X11_FOUND AND TARGET PkgConfig::XRANDR AND TARGET PkgConfig::X11)
   target_sources(uicommon PRIVATE X11Utils.cpp)
   target_link_libraries(uicommon PUBLIC PkgConfig::XRANDR PkgConfig::X11)
 endif()

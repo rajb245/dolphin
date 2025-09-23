@@ -1,7 +1,6 @@
 // Copyright 2021 Dolphin Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#ifndef DIK_STANDALONE
 #include <cstdio>
 #include <thread>
 
@@ -107,4 +106,3 @@ std::unique_ptr<GBAHostInterface> Host_CreateGBAHost(std::weak_ptr<HW::GBA::Core
   return nullptr;
 }
 // End stubs to satisfy Core dependencies
-#endif  // !DIK_STANDALONE

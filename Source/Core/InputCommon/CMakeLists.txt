@@ -124,7 +124,7 @@ elseif(APPLE)
   target_compile_options(inputcommon PRIVATE
     -fobjc-arc
   )
-elseif(X11_FOUND)
+elseif(ENABLE_X11 AND X11_FOUND AND TARGET PkgConfig::X11_INPUT)
   target_include_directories(inputcommon PUBLIC ${X11_INPUT_INCLUDE_DIRS})
   target_sources(inputcommon PRIVATE
     ControllerInterface/Xlib/XInput2.cpp

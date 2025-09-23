@@ -15,6 +15,7 @@ set_target_properties(dolphin-tool PROPERTIES OUTPUT_NAME dolphin-tool)
 
 if(DOLPHIN_TOOL_STANDALONE)
   target_compile_definitions(dolphin-tool PRIVATE DIK_STANDALONE=1)
+  target_sources(dolphin-tool PRIVATE StandaloneUICommon.cpp)
   target_link_libraries(dolphin-tool
   PRIVATE
     DiscImageKit
