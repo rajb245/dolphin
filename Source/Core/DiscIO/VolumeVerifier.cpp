@@ -38,10 +38,14 @@
 #include "Common/Swap.h"
 #include "Common/Version.h"
 #include "Core/IOS/Device.h"
+#ifndef DIK_STANDALONE
 #include "Core/IOS/ES/ES.h"
+#endif
 #include "Core/IOS/ES/Formats.h"
 #include "Core/IOS/IOS.h"
+#ifndef DIK_STANDALONE
 #include "Core/IOS/IOSC.h"
+#endif
 #include "DiscIO/Blob.h"
 #include "DiscIO/DiscScrubber.h"
 #include "DiscIO/DiscUtils.h"
@@ -574,6 +578,7 @@ bool VolumeVerifier::CheckPartition(const Partition& partition)
     return false;
   }
 
+#ifndef DIK_STANDALONE
   if (!m_is_datel)
   {
     const auto console_type =
@@ -595,6 +600,7 @@ bool VolumeVerifier::CheckPartition(const Partition& partition)
                  Common::FmtFormatT("The {0} partition is not correctly signed.", name));
     }
   }
+#endif
 
   if (m_volume.HasWiiHashes() && !m_volume.CheckH3TableIntegrity(partition))
   {
@@ -977,6 +983,7 @@ void VolumeVerifier::CheckMisc()
     }
   }
 
+#ifndef DIK_STANDALONE
   if (m_volume.GetVolumeType() == Platform::WiiWAD)
   {
     IOS::HLE::Kernel ios(m_ticket.GetConsoleType());
@@ -988,7 +995,6 @@ void VolumeVerifier::CheckMisc()
                            IOS::HLE::ESCore::VerifyMode::DoNotUpdateCertStore, m_ticket,
                            cert_chain))
     {
-      // i18n: "Ticket" here is a kind of digital authorization to use a certain title (e.g. a game)
       AddProblem(Severity::Low, Common::GetStringT("The ticket is not correctly signed."));
     }
 
@@ -1003,6 +1009,7 @@ void VolumeVerifier::CheckMisc()
                              "also refuse to copy or move it back to the NAND."));
     }
   }
+#endif
 
   if (m_volume.IsNKit())
   {

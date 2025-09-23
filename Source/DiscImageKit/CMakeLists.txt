@@ -1,5 +1,6 @@
 add_library(DiscImageKit STATIC
   src/fs.cpp
+  src/Core/IOS/ES/Formats.cpp
   ../Core/DiscIO/Blob.cpp
   ../Core/DiscIO/CISOBlob.cpp
   ../Core/DiscIO/CompressedBlob.cpp
@@ -39,18 +40,26 @@ set_target_properties(DiscImageKit PROPERTIES
 )
 
 target_include_directories(DiscImageKit
-  PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
   PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../Core
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Common
+)
+
+target_include_directories(DiscImageKit
+  BEFORE PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+  PRIVATE
+    ${CMAKE_SOURCE_DIR}/Externals/mbedtls/include
 )
 
 target_compile_features(DiscImageKit PUBLIC cxx_std_17)
 
+target_compile_definitions(DiscImageKit PUBLIC DIK_STANDALONE=1)
+
 # TODO: Trim dependencies in later phases.
 target_link_libraries(DiscImageKit
   PUBLIC
-    core
+    common
     fmt::fmt
     zstd::zstd
     ZLIB::ZLIB
@@ -58,4 +67,7 @@ target_link_libraries(DiscImageKit
     LibLZMA::LibLZMA
     minizip-ng::minizip-ng
     pugixml
+    mbedcrypto
+    mbedtls
+    mbedx509
 )

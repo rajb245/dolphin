@@ -21,7 +21,9 @@
 #include "Common/Logging/Log.h"
 #include "Common/MsgHandler.h"
 #include "Common/StringUtil.h"
+#ifndef DIK_STANDALONE
 #include "Core/IOS/IOSC.h"
+#endif
 #include "DiscIO/Blob.h"
 #include "DiscIO/Enums.h"
 #include "DiscIO/Volume.h"
