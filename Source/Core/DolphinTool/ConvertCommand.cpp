@@ -21,7 +21,13 @@
 #include "DiscIO/Volume.h"
 #include "DiscIO/VolumeDisc.h"
 #include "DiscIO/WIABlob.h"
+
+#ifdef DIK_STANDALONE
+#include "discimagekit/fs.h"
+#include "discimagekit/log.h"
+#else
 #include "UICommon/UICommon.h"
+#endif
 
 namespace DolphinTool
 {
@@ -114,8 +120,12 @@ int ConvertCommand(const std::vector<std::string>& args)
 
   // Initialize the dolphin user directory, required for temporary processing files
   // If this is not set, destructive file operations could occur due to path confusion
+#ifdef DIK_STANDALONE
+  dik::initialize_user_directory(options["user"]);
+#else
   UICommon::SetUserDirectory(options["user"]);
   UICommon::Init();
+#endif
 
   // Validate options
 

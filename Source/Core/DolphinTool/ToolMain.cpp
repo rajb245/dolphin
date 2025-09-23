@@ -11,8 +11,14 @@
 #include <fmt/format.h>
 #include <fmt/ostream.h>
 
+#ifndef DIK_STANDALONE
 #include "Common/StringUtil.h"
 #include "Core/Core.h"
+#endif
+#ifdef _WIN32
+#include <windows.h>
+#include <shellapi.h>
+#endif
 
 #include "DolphinTool/ConvertCommand.h"
 #include "DolphinTool/ExtractCommand.h"
@@ -32,7 +38,9 @@ static void PrintUsage()
 
 int main(int argc, char* argv[])
 {
+#ifndef DIK_STANDALONE
   Core::DeclareAsHostThread();
+#endif
 
   if (argc < 2)
   {
@@ -59,6 +67,36 @@ int main(int argc, char* argv[])
 #ifdef _WIN32
 int wmain(int, wchar_t*[], wchar_t*[])
 {
+#ifdef DIK_STANDALONE
+  int argc = 0;
+  LPWSTR* argv_w = CommandLineToArgvW(GetCommandLineW(), &argc);
+  if (!argv_w)
+    return EXIT_FAILURE;
+
+  std::vector<std::string> args;
+  args.reserve(argc);
+  for (int i = 0; i < argc; ++i)
+  {
+    const int required_length = WideCharToMultiByte(CP_UTF8, 0, argv_w[i], -1, nullptr, 0, nullptr, nullptr);
+    if (required_length <= 0)
+    {
+      LocalFree(argv_w);
+      return EXIT_FAILURE;
+    }
+
+    std::string utf8(required_length - 1, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, argv_w[i], -1, utf8.data(), required_length, nullptr, nullptr);
+    args.emplace_back(std::move(utf8));
+  }
+  LocalFree(argv_w);
+
+  std::vector<char*> argv;
+  argv.reserve(args.size());
+  for (std::string& arg : args)
+    argv.push_back(arg.data());
+
+  return main(static_cast<int>(argv.size()), argv.data());
+#else
   std::vector<std::string> args = Common::CommandLineToUtf8Argv(GetCommandLineW());
   const int argc = static_cast<int>(args.size());
   std::vector<char*> argv(args.size());
@@ -66,6 +104,7 @@ int wmain(int, wchar_t*[], wchar_t*[])
     argv[i] = args[i].data();
 
   return main(argc, argv.data());
+#endif
 }
 
 #undef main

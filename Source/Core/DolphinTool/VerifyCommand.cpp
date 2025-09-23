@@ -11,11 +11,18 @@
 #include <fmt/format.h>
 #include <fmt/ostream.h>
 
+#include "Common/Assert.h"
 #include "Common/StringUtil.h"
-#include "Core/AchievementManager.h"
 #include "DiscIO/Volume.h"
 #include "DiscIO/VolumeVerifier.h"
+
+#ifdef DIK_STANDALONE
+#include "discimagekit/fs.h"
+#include "discimagekit/log.h"
+#else
+#include "Core/AchievementManager.h"
 #include "UICommon/UICommon.h"
+#endif
 
 namespace DolphinTool
 {
@@ -104,8 +111,12 @@ int VerifyCommand(const std::vector<std::string>& args)
 
   // Initialize the dolphin user directory, required for temporary processing files
   // If this is not set, destructive file operations could occur due to path confusion
+#ifdef DIK_STANDALONE
+  dik::initialize_user_directory(options["user"]);
+#else
   UICommon::SetUserDirectory(options["user"]);
   UICommon::Init();
+#endif
 
   // Validate options
   if (!options.is_set("input"))
@@ -135,7 +146,14 @@ int VerifyCommand(const std::vector<std::string>& args)
       hashes_to_calculate.sha1 = true;
 #ifdef USE_RETRO_ACHIEVEMENTS
     else if (algorithm == "rchash")
+    {
+#ifdef DIK_STANDALONE
+      fmt::print(std::cerr, "Error: RetroAchievements hash is not supported in standalone builds\n");
+      return EXIT_FAILURE;
+#else
       rc_hash_calculate = true;
+#endif
+    }
 #endif
   }
 

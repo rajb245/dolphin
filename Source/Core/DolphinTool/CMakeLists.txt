@@ -13,13 +13,23 @@ add_executable(dolphin-tool
 
 set_target_properties(dolphin-tool PROPERTIES OUTPUT_NAME dolphin-tool)
 
-target_link_libraries(dolphin-tool
-PRIVATE
-  discio
-  uicommon
-  cpp-optparse
-  fmt::fmt
-)
+if(DOLPHIN_TOOL_STANDALONE)
+  target_compile_definitions(dolphin-tool PRIVATE DIK_STANDALONE=1)
+  target_link_libraries(dolphin-tool
+  PRIVATE
+    DiscImageKit
+    cpp-optparse
+    fmt::fmt
+  )
+else()
+  target_link_libraries(dolphin-tool
+  PRIVATE
+    discio
+    uicommon
+    cpp-optparse
+    fmt::fmt
+  )
+endif()
 
 if(MSVC)
   # Add precompiled header

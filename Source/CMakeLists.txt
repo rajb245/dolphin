@@ -77,6 +77,10 @@ if (ANDROID)
   add_subdirectory(Android/jni)
 endif()
 
+if (DOLPHIN_TOOL_STANDALONE)
+  add_subdirectory(DiscImageKit)
+endif()
+
 if (ENABLE_TESTS)
   add_subdirectory(UnitTests)
 endif()
