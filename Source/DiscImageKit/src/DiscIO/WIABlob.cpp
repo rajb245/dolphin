@@ -15,7 +15,10 @@
 #include <utility>
 
 #include <fmt/format.h>
+
+#if DIK_HAVE_ZSTD
 #include <zstd.h>
+#endif
 
 #include "Common/Align.h"
 #include "Common/Assert.h"
@@ -60,10 +63,16 @@ std::pair<int, int> GetAllowedCompressionLevels(WIARVZCompressionType compressio
 {
   switch (compression_type)
   {
+#if DIK_HAVE_BZIP2
   case WIARVZCompressionType::Bzip2:
+    return {1, 9};
+#endif
+#if DIK_HAVE_LZMA
   case WIARVZCompressionType::LZMA:
   case WIARVZCompressionType::LZMA2:
     return {1, 9};
+#endif
+#if DIK_HAVE_ZSTD
   case WIARVZCompressionType::Zstd:
     // The actual minimum level can be gotten by calling ZSTD_minCLevel(). However, returning that
     // would make the UI rather weird, because it is a negative number with very large magnitude.
@@ -72,6 +81,7 @@ std::pair<int, int> GetAllowedCompressionLevels(WIARVZCompressionType compressio
       return {1, ZSTD_maxCLevel()};
     else
       return {ZSTD_minCLevel(), ZSTD_maxCLevel()};
+#endif
   default:
     return {0, -1};
   }
@@ -585,9 +595,12 @@ WIARVZFileReader<RVZ>::ReadCompressedData(u64 offset_in_file, u64 compressed_siz
     decompressor = std::make_unique<PurgeDecompressor>(rvz_packed_size == 0 ? decompressed_size :
                                                                               rvz_packed_size);
     break;
+#if DIK_HAVE_BZIP2
   case WIARVZCompressionType::Bzip2:
     decompressor = std::make_unique<Bzip2Decompressor>();
     break;
+#endif
+#if DIK_HAVE_LZMA
   case WIARVZCompressionType::LZMA:
     decompressor = std::make_unique<LZMADecompressor>(false, m_header_2.compressor_data,
                                                       m_header_2.compressor_data_size);
@@ -596,9 +609,12 @@ WIARVZFileReader<RVZ>::ReadCompressedData(u64 offset_in_file, u64 compressed_siz
     decompressor = std::make_unique<LZMADecompressor>(true, m_header_2.compressor_data,
                                                       m_header_2.compressor_data_size);
     break;
+#endif
+#if DIK_HAVE_ZSTD
   case WIARVZCompressionType::Zstd:
     decompressor = std::make_unique<ZstdDecompressor>();
     break;
+#endif
   }
 
   const bool compressed_exception_lists = compression_type > WIARVZCompressionType::Purge;
@@ -1078,10 +1094,15 @@ void WIARVZFileReader<RVZ>::SetUpCompressor(std::unique_ptr<Compressor>* compres
     *compressor = std::make_unique<PurgeCompressor>();
     break;
   case WIARVZCompressionType::Bzip2:
+#if DIK_HAVE_BZIP2
     *compressor = std::make_unique<Bzip2Compressor>(compression_level);
+#else
+    *compressor = nullptr;
+#endif
     break;
   case WIARVZCompressionType::LZMA:
   case WIARVZCompressionType::LZMA2:
+#if DIK_HAVE_LZMA
   {
     u8* compressor_data = nullptr;
     u8* compressor_data_size = nullptr;
@@ -1097,8 +1118,16 @@ void WIARVZFileReader<RVZ>::SetUpCompressor(std::unique_ptr<Compressor>* compres
                                                    compressor_data_size);
     break;
   }
+#else
+    *compressor = nullptr;
+    break;
+#endif
   case WIARVZCompressionType::Zstd:
+#if DIK_HAVE_ZSTD
     *compressor = std::make_unique<ZstdCompressor>(compression_level);
+#else
+    *compressor = nullptr;
+#endif
     break;
   }
 }

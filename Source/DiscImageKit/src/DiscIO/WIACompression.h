@@ -8,9 +8,17 @@
 #include <optional>
 #include <vector>
 
+#if DIK_HAVE_BZIP2
 #include <bzlib.h>
+#endif
+
+#if DIK_HAVE_LZMA
 #include <lzma.h>
+#endif
+
+#if DIK_HAVE_ZSTD
 #include <zstd.h>
+#endif
 
 #include "Common/CommonTypes.h"
 #include "Common/Crypto/SHA1.h"
@@ -72,6 +80,7 @@ private:
   std::unique_ptr<Common::SHA1::Context> m_sha1_context;
 };
 
+#if DIK_HAVE_BZIP2
 class Bzip2Decompressor final : public Decompressor
 {
 public:
@@ -84,7 +93,9 @@ private:
   bz_stream m_stream = {};
   bool m_started = false;
 };
+#endif
 
+#if DIK_HAVE_LZMA
 class LZMADecompressor final : public Decompressor
 {
 public:
@@ -101,7 +112,9 @@ private:
   bool m_started = false;
   bool m_error_occurred = false;
 };
+#endif
 
+#if DIK_HAVE_ZSTD
 class ZstdDecompressor final : public Decompressor
 {
 public:
@@ -114,6 +127,7 @@ public:
 private:
   ZSTD_DStream* m_stream;
 };
+#endif
 
 class RVZPackDecompressor final : public Decompressor
 {
@@ -180,6 +194,7 @@ private:
   std::unique_ptr<Common::SHA1::Context> m_sha1_context;
 };
 
+#if DIK_HAVE_BZIP2
 class Bzip2Compressor final : public Compressor
 {
 public:
@@ -200,7 +215,9 @@ private:
   std::vector<u8> m_buffer;
   int m_compression_level;
 };
+#endif
 
+#if DIK_HAVE_LZMA
 class LZMACompressor final : public Compressor
 {
 public:
@@ -224,7 +241,9 @@ private:
   std::vector<u8> m_buffer;
   bool m_initialization_failed = false;
 };
+#endif
 
+#if DIK_HAVE_ZSTD
 class ZstdCompressor final : public Compressor
 {
 public:
@@ -245,5 +264,6 @@ private:
   ZSTD_outBuffer m_out_buffer{};
   std::vector<u8> m_buffer;
 };
+#endif
 
 }  // namespace DiscIO

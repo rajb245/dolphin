@@ -39,13 +39,29 @@ ParseCompressionTypeString(const std::string& compression_str)
   else if (compression_str == "purge")
     return DiscIO::WIARVZCompressionType::Purge;
   else if (compression_str == "bzip2")
+#if DIK_HAVE_BZIP2
     return DiscIO::WIARVZCompressionType::Bzip2;
+#else
+    return std::nullopt;
+#endif
   else if (compression_str == "lzma")
+#if DIK_HAVE_LZMA
     return DiscIO::WIARVZCompressionType::LZMA;
+#else
+    return std::nullopt;
+#endif
   else if (compression_str == "lzma2")
+#if DIK_HAVE_LZMA
     return DiscIO::WIARVZCompressionType::LZMA2;
+#else
+    return std::nullopt;
+#endif
   else if (compression_str == "zstd")
+#if DIK_HAVE_ZSTD
     return DiscIO::WIARVZCompressionType::Zstd;
+#else
+    return std::nullopt;
+#endif
   return std::nullopt;
 }
 
@@ -103,12 +119,24 @@ int ConvertCommand(const std::vector<std::string>& args)
       .help("Block size for GCZ/WIA/RVZ formats, as an integer. Suggested value for RVZ: 131072 "
             "(128 KiB)");
 
+  std::vector<std::string> compression_choices{"none"};
+#if DIK_HAVE_ZSTD
+  compression_choices.push_back("zstd");
+#endif
+#if DIK_HAVE_BZIP2
+  compression_choices.push_back("bzip2");
+#endif
+#if DIK_HAVE_LZMA
+  compression_choices.push_back("lzma");
+  compression_choices.push_back("lzma2");
+#endif
+
   parser.add_option("-c", "--compression")
       .type("string")
       .action("store")
       .help("Compression method to use when converting to WIA/RVZ. Suggested value for RVZ: zstd "
             "[%choices]")
-      .choices({"none", "zstd", "bzip2", "lzma", "lzma2"});
+      .choices(compression_choices.begin(), compression_choices.end());
 
   parser.add_option("-l", "--compression_level")
       .type("int")

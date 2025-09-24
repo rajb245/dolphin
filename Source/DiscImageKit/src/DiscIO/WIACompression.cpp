@@ -11,9 +11,17 @@
 #include <optional>
 #include <vector>
 
+#if DIK_HAVE_BZIP2
 #include <bzlib.h>
+#endif
+
+#if DIK_HAVE_LZMA
 #include <lzma.h>
+#endif
+
+#if DIK_HAVE_ZSTD
 #include <zstd.h>
+#endif
 
 #include "Common/Assert.h"
 #include "Common/CommonTypes.h"
@@ -23,10 +31,14 @@
 
 namespace DiscIO
 {
+#if DIK_HAVE_LZMA
+
 static u32 LZMA2DictionarySize(u8 p)
 {
   return (static_cast<u32>(2) | (p & 1)) << (p / 2 + 11);
 }
+
+#endif
 
 Decompressor::~Decompressor() = default;
 
@@ -146,6 +158,8 @@ bool PurgeDecompressor::Decompress(const DecompressionBuffer& in, DecompressionB
   return true;
 }
 
+#if DIK_HAVE_BZIP2
+
 Bzip2Decompressor::~Bzip2Decompressor()
 {
   if (m_started)
@@ -179,6 +193,10 @@ bool Bzip2Decompressor::Decompress(const DecompressionBuffer& in, DecompressionB
   m_done = result == BZ_STREAM_END;
   return result == BZ_OK || result == BZ_STREAM_END;
 }
+
+#endif  // DIK_HAVE_BZIP2
+
+#if DIK_HAVE_LZMA
 
 LZMADecompressor::LZMADecompressor(bool lzma2, const u8* filter_options, size_t filter_options_size)
 {
@@ -256,6 +274,10 @@ bool LZMADecompressor::Decompress(const DecompressionBuffer& in, DecompressionBu
   return result == LZMA_OK || result == LZMA_STREAM_END;
 }
 
+#endif  // DIK_HAVE_LZMA
+
+#if DIK_HAVE_ZSTD
+
 ZstdDecompressor::ZstdDecompressor()
 {
   m_stream = ZSTD_createDStream();
@@ -283,6 +305,8 @@ bool ZstdDecompressor::Decompress(const DecompressionBuffer& in, DecompressionBu
   m_done = result == 0;
   return !ZSTD_isError(result);
 }
+
+#endif  // DIK_HAVE_ZSTD
 
 RVZPackDecompressor::RVZPackDecompressor(std::unique_ptr<Decompressor> decompressor,
                                          DecompressionBuffer decompressed, u64 data_offset,
@@ -533,6 +557,8 @@ size_t PurgeCompressor::GetSize() const
   return m_bytes_written;
 }
 
+#if DIK_HAVE_BZIP2
+
 Bzip2Compressor::Bzip2Compressor(int compression_level) : m_compression_level(compression_level)
 {
 }
@@ -611,6 +637,10 @@ size_t Bzip2Compressor::GetSize() const
 {
   return static_cast<size_t>(reinterpret_cast<u8*>(m_stream.next_out) - m_buffer.data());
 }
+
+#endif  // DIK_HAVE_BZIP2
+
+#if DIK_HAVE_LZMA
 
 LZMACompressor::LZMACompressor(bool lzma2, int compression_level, u8 compressor_data_out[7],
                                u8* compressor_data_size_out)
@@ -733,6 +763,10 @@ size_t LZMACompressor::GetSize() const
   return static_cast<size_t>(m_stream.next_out - m_buffer.data());
 }
 
+#endif  // DIK_HAVE_LZMA
+
+#if DIK_HAVE_ZSTD
+
 ZstdCompressor::ZstdCompressor(int compression_level)
 {
   m_stream = ZSTD_createCStream();
@@ -809,5 +843,7 @@ void ZstdCompressor::ExpandBuffer(size_t bytes_to_add)
   m_out_buffer.dst = m_buffer.data();
   m_out_buffer.size = m_buffer.size();
 }
+
+#endif  // DIK_HAVE_ZSTD
 
 }  // namespace DiscIO
