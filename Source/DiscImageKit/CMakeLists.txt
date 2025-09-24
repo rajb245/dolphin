@@ -11,38 +11,38 @@ add_library(DiscImageKit STATIC
   src/Common/MsgHandler.cpp
   src/Common/NandPaths.cpp
   src/Common/StringUtil.cpp
-  ../Core/DiscIO/Blob.cpp
-  ../Core/DiscIO/CISOBlob.cpp
-  ../Core/DiscIO/CompressedBlob.cpp
-  ../Core/DiscIO/DirectoryBlob.cpp
-  ../Core/DiscIO/DiscExtractor.cpp
-  ../Core/DiscIO/DiscScrubber.cpp
-  ../Core/DiscIO/DiscUtils.cpp
-  ../Core/DiscIO/Enums.cpp
-  ../Core/DiscIO/FileBlob.cpp
-  ../Core/DiscIO/FileSystemGCWii.cpp
-  ../Core/DiscIO/Filesystem.cpp
-  ../Core/DiscIO/GameModDescriptor.cpp
-  ../Core/DiscIO/LaggedFibonacciGenerator.cpp
-  ../Core/DiscIO/NANDImporter.cpp
-  ../Core/DiscIO/NFSBlob.cpp
-  ../Core/DiscIO/RiivolutionParser.cpp
-  ../Core/DiscIO/RiivolutionPatcher.cpp
-  ../Core/DiscIO/ScrubbedBlob.cpp
-  ../Core/DiscIO/SplitFileBlob.cpp
-  ../Core/DiscIO/TGCBlob.cpp
-  ../Core/DiscIO/Volume.cpp
-  ../Core/DiscIO/VolumeDisc.cpp
-  ../Core/DiscIO/VolumeFileBlobReader.cpp
-  ../Core/DiscIO/VolumeGC.cpp
-  ../Core/DiscIO/VolumeVerifier.cpp
-  ../Core/DiscIO/VolumeWad.cpp
-  ../Core/DiscIO/VolumeWii.cpp
-  ../Core/DiscIO/WbfsBlob.cpp
-  ../Core/DiscIO/WIABlob.cpp
-  ../Core/DiscIO/WIACompression.cpp
-  ../Core/DiscIO/WiiEncryptionCache.cpp
-  ../Core/DiscIO/WiiSaveBanner.cpp
+  src/DiscIO/Blob.cpp
+  src/DiscIO/CISOBlob.cpp
+  src/DiscIO/CompressedBlob.cpp
+  src/DiscIO/DirectoryBlob.cpp
+  src/DiscIO/DiscExtractor.cpp
+  src/DiscIO/DiscScrubber.cpp
+  src/DiscIO/DiscUtils.cpp
+  src/DiscIO/Enums.cpp
+  src/DiscIO/FileBlob.cpp
+  src/DiscIO/FileSystemGCWii.cpp
+  src/DiscIO/Filesystem.cpp
+  src/DiscIO/GameModDescriptor.cpp
+  src/DiscIO/LaggedFibonacciGenerator.cpp
+  src/DiscIO/NANDImporter.cpp
+  src/DiscIO/NFSBlob.cpp
+  src/DiscIO/RiivolutionParser.cpp
+  src/DiscIO/RiivolutionPatcher.cpp
+  src/DiscIO/ScrubbedBlob.cpp
+  src/DiscIO/SplitFileBlob.cpp
+  src/DiscIO/TGCBlob.cpp
+  src/DiscIO/Volume.cpp
+  src/DiscIO/VolumeDisc.cpp
+  src/DiscIO/VolumeFileBlobReader.cpp
+  src/DiscIO/VolumeGC.cpp
+  src/DiscIO/VolumeVerifier.cpp
+  src/DiscIO/VolumeWad.cpp
+  src/DiscIO/VolumeWii.cpp
+  src/DiscIO/WbfsBlob.cpp
+  src/DiscIO/WIABlob.cpp
+  src/DiscIO/WIACompression.cpp
+  src/DiscIO/WiiEncryptionCache.cpp
+  src/DiscIO/WiiSaveBanner.cpp
 )
 
 set_target_properties(DiscImageKit PROPERTIES
@@ -51,6 +51,7 @@ set_target_properties(DiscImageKit PROPERTIES
 
 target_include_directories(DiscImageKit
   PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/../Core
     ${CMAKE_CURRENT_SOURCE_DIR}/../Common
 )
