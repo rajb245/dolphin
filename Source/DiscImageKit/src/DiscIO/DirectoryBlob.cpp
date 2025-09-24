@@ -24,7 +24,6 @@
 #include "Common/Logging/Log.h"
 #include "Common/StringUtil.h"
 #include "Common/Swap.h"
-#include "Core/Boot/DolReader.h"
 #include "Core/IOS/ES/Formats.h"
 #include "DiscIO/Blob.h"
 #include "DiscIO/DiscUtils.h"
