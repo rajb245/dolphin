@@ -43,6 +43,11 @@ add_library(DiscImageKit STATIC
   src/DiscIO/WiiSaveBanner.cpp
 )
 
+option(DIK_USE_ZLIB "Enable zlib support for GCZ/WIA and CRC helpers" ON)
+option(DIK_USE_ZSTD "Enable zstd support for RVZ/WIA compression" ON)
+option(DIK_USE_BZIP2 "Enable bzip2 support for WIA compression" ON)
+option(DIK_USE_LZMA "Enable lzma support for WIA compression" ON)
+
 set_target_properties(DiscImageKit PROPERTIES
   OUTPUT_NAME "discimagekit"
 )
@@ -62,19 +67,41 @@ target_include_directories(DiscImageKit
 
 target_compile_features(DiscImageKit PUBLIC cxx_std_17)
 
-target_compile_definitions(DiscImageKit PUBLIC DIK_STANDALONE=1)
+target_compile_definitions(DiscImageKit
+  PUBLIC
+    DIK_STANDALONE=1
+    DIK_HAVE_ZLIB=$<BOOL:${DIK_USE_ZLIB}>
+    DIK_HAVE_ZSTD=$<BOOL:${DIK_USE_ZSTD}>
+    DIK_HAVE_BZIP2=$<BOOL:${DIK_USE_BZIP2}>
+    DIK_HAVE_LZMA=$<BOOL:${DIK_USE_LZMA}>
+)
 
-# TODO: Trim dependencies in later phases.
+set(_dik_public_libs
+  fmt::fmt
+  minizip-ng::minizip-ng
+  pugixml
+  mbedcrypto
+  mbedtls
+  mbedx509
+)
+
+if(DIK_USE_ZLIB)
+  list(APPEND _dik_public_libs ZLIB::ZLIB)
+endif()
+
+if(DIK_USE_ZSTD)
+  list(APPEND _dik_public_libs zstd::zstd)
+endif()
+
+if(DIK_USE_BZIP2)
+  list(APPEND _dik_public_libs BZip2::BZip2)
+endif()
+
+if(DIK_USE_LZMA)
+  list(APPEND _dik_public_libs LibLZMA::LibLZMA)
+endif()
+
 target_link_libraries(DiscImageKit
   PUBLIC
-    fmt::fmt
-    zstd::zstd
-    ZLIB::ZLIB
-    BZip2::BZip2
-    LibLZMA::LibLZMA
-    minizip-ng::minizip-ng
-    pugixml
-    mbedcrypto
-    mbedtls
-    mbedx509
+    ${_dik_public_libs}
 )
