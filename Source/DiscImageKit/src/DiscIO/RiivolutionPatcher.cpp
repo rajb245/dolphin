@@ -14,6 +14,7 @@
 #include "Common/FileUtil.h"
 #include "Common/IOFile.h"
 #include "Common/StringUtil.h"
+#ifndef DIK_STANDALONE
 #include "Core/AchievementManager.h"
 #include "Core/Core.h"
 #include "Core/HLE/HLE.h"
@@ -21,6 +22,7 @@
 #include "Core/IOS/FS/FileSystem.h"
 #include "Core/PowerPC/MMU.h"
 #include "Core/System.h"
+#endif
 #include "DiscIO/DirectoryBlob.h"
 #include "DiscIO/RiivolutionParser.h"
 
@@ -505,6 +507,7 @@ void ApplyPatchesToFiles(std::span<const Patch> patches, PatchIndex index,
   }
 }
 
+#ifndef DIK_STANDALONE
 static bool MemoryMatchesAt(const Core::CPUThreadGuard& guard, u32 offset,
                             std::span<const u8> value)
 {
@@ -654,6 +657,8 @@ void ApplyApploaderMemoryPatches(const Core::CPUThreadGuard& guard, std::span<co
     }
   }
 }
+#else
+#endif
 
 std::optional<SavegameRedirect> ExtractSavegameRedirect(std::span<const Patch> riivolution_patches)
 {

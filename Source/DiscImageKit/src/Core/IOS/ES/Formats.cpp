@@ -1,23 +1,43 @@
+// Copyright 2017 Dolphin Emulator Project
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 #include "Core/IOS/ES/Formats.h"
 
 #include <algorithm>
 #include <array>
-#include <cmath>
+#include <cstddef>
 #include <cstring>
-#include <ranges>
+#include <map>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 #include <fmt/format.h>
 
+#include "Common/Assert.h"
+#include "Common/ChunkFile.h"
+#include "Common/CommonTypes.h"
 #include "Common/Crypto/AES.h"
 #include "Common/Crypto/SHA1.h"
+#include "Common/Logging/Log.h"
+#include "Common/NandPaths.h"
+#include "Common/Projection.h"
 #include "Common/StringUtil.h"
 #include "Common/Swap.h"
+#ifndef DIK_STANDALONE
+#include "Core/CommonTitles.h"
+#include "Core/IOS/Device.h"
+#include "Core/IOS/FS/FileSystem.h"
+#include "Core/IOS/FS/FileSystemProxy.h"
+#include "Core/IOS/IOS.h"
+#include "Core/IOS/Uids.h"
+#endif
+#include "Core/IOS/IOSC.h"
 #include "DiscIO/DiscUtils.h"
-#include "discimagekit/log.h"
 
 namespace IOS::ES
-{
-namespace
 {
 constexpr size_t CONTENT_VIEW_SIZE = 0x10;
 
@@ -31,25 +51,29 @@ constexpr std::array<u8, 16> NEW_COMMON_KEY = {
     0x63, 0xb8, 0x2b, 0xb4, 0xf4, 0x61, 0x4e, 0x2e,
     0x13, 0xf2, 0xfe, 0xfb, 0xba, 0x4c, 0x9b, 0x7e};
 
-constexpr size_t TICKET_SIZE = sizeof(Ticket);
-
-const Ticket* GetTicketPtr(const std::vector<u8>& bytes, size_t index)
+bool IsTitleType(u64 title_id, TitleType title_type)
 {
-  const size_t offset = index * TICKET_SIZE;
-  return offset + TICKET_SIZE <= bytes.size() ?
-             reinterpret_cast<const Ticket*>(bytes.data() + offset) : nullptr;
+  return static_cast<u32>(title_id >> 32) == static_cast<u32>(title_type);
 }
 
-void CopyContent(const u8* src, Content* content)
+bool IsDiscTitle(u64 title_id)
 {
-  content->id = Common::swap32(src + offsetof(Content, id));
-  content->index = Common::swap16(src + offsetof(Content, index));
-  content->type = Common::swap16(src + offsetof(Content, type));
-  content->size = Common::swap64(src + offsetof(Content, size));
-  std::copy_n(src + offsetof(Content, sha1), content->sha1.size(), content->sha1.begin());
+  return IsTitleType(title_id, TitleType::Game) ||
+         IsTitleType(title_id, TitleType::GameWithChannel);
 }
 
-}  // namespace
+bool IsChannel(u64 title_id)
+{
+#ifndef DIK_STANDALONE
+  if (title_id == Titles::SYSTEM_MENU)
+    return true;
+#endif
+
+  return IsTitleType(title_id, TitleType::Channel) ||
+         IsTitleType(title_id, TitleType::SystemChannel) ||
+         IsTitleType(title_id, TitleType::GameWithChannel) ||
+         IsTitleType(title_id, TitleType::HiddenChannel);
+}
 
 bool Content::IsShared() const
 {
@@ -61,8 +85,19 @@ bool Content::IsOptional() const
   return (type & 0x4000) != 0;
 }
 
+bool operator==(const Content& lhs, const Content& rhs)
+{
+  auto fields = [](const Content& c) { return std::tie(c.id, c.index, c.type, c.size, c.sha1); };
+  return fields(lhs) == fields(rhs);
+}
+
 SignedBlobReader::SignedBlobReader(std::vector<u8> bytes) : m_bytes(std::move(bytes))
 {
+}
+
+const std::vector<u8>& SignedBlobReader::GetBytes() const
+{
+  return m_bytes;
 }
 
 void SignedBlobReader::SetBytes(std::vector<u8> bytes)
@@ -70,11 +105,66 @@ void SignedBlobReader::SetBytes(std::vector<u8> bytes)
   m_bytes = std::move(bytes);
 }
 
+static size_t GetIssuerOffset(SignatureType signature_type)
+{
+  switch (signature_type)
+  {
+  case SignatureType::RSA2048:
+    return offsetof(SignatureRSA2048, issuer);
+  case SignatureType::RSA4096:
+    return offsetof(SignatureRSA4096, issuer);
+  case SignatureType::ECC:
+    return offsetof(SignatureECC, issuer);
+  default:
+    return 0;
+  }
+}
+
+std::array<u8, 20> SignedBlobReader::GetSha1() const
+{
+  const size_t skip = GetIssuerOffset(GetSignatureType());
+  return Common::SHA1::CalculateDigest(m_bytes.data() + skip, m_bytes.size() - skip);
+}
+
+bool SignedBlobReader::IsSignatureValid() const
+{
+  // Too small for the certificate type.
+  if (m_bytes.size() < sizeof(SignatureType))
+    return false;
+
+  // Too small to contain the whole signature data.
+  const size_t signature_size = GetSignatureSize();
+  if (signature_size == 0 || m_bytes.size() < signature_size)
+    return false;
+
+  return true;
+}
+
 SignatureType SignedBlobReader::GetSignatureType() const
 {
-  if (m_bytes.size() < sizeof(SignatureType))
-    return SignatureType::RSA2048;
   return static_cast<SignatureType>(Common::swap32(m_bytes.data()));
+}
+
+template <typename T, typename It>
+static std::vector<u8> DetailGetSignatureData(It begin)
+{
+  const auto signature_begin = begin + offsetof(T, sig);
+  return std::vector<u8>(signature_begin, signature_begin + sizeof(T::sig));
+}
+
+std::vector<u8> SignedBlobReader::GetSignatureData() const
+{
+  switch (GetSignatureType())
+  {
+  case SignatureType::RSA4096:
+    return DetailGetSignatureData<SignatureRSA4096>(m_bytes.cbegin());
+  case SignatureType::RSA2048:
+    return DetailGetSignatureData<SignatureRSA2048>(m_bytes.cbegin());
+  case SignatureType::ECC:
+    return DetailGetSignatureData<SignatureECC>(m_bytes.cbegin());
+  default:
+    return {};
+  }
 }
 
 size_t SignedBlobReader::GetSignatureSize() const
@@ -82,38 +172,46 @@ size_t SignedBlobReader::GetSignatureSize() const
   switch (GetSignatureType())
   {
   case SignatureType::RSA4096:
-    return 0x280;
+    return sizeof(SignatureRSA4096);
   case SignatureType::RSA2048:
+    return sizeof(SignatureRSA2048);
+  case SignatureType::ECC:
+    return sizeof(SignatureECC);
   default:
-    return 0x180;
+    return 0;
   }
+}
+
+template <typename T>
+static std::string DetailGetIssuer(const u8* bytes)
+{
+  const char* issuer = reinterpret_cast<const char*>(bytes + offsetof(T, issuer));
+  return {issuer, strnlen(issuer, sizeof(T::issuer))};
 }
 
 std::string SignedBlobReader::GetIssuer() const
 {
-  const size_t signature_size = GetSignatureSize();
-  if (m_bytes.size() < signature_size)
-    return {};
-  const char* issuer = reinterpret_cast<const char*>(m_bytes.data() + signature_size - 0x40);
-  return std::string(issuer, strnlen(issuer, 0x40));
+  switch (GetSignatureType())
+  {
+  case SignatureType::RSA4096:
+    return DetailGetIssuer<SignatureRSA4096>(m_bytes.data());
+  case SignatureType::RSA2048:
+    return DetailGetIssuer<SignatureRSA2048>(m_bytes.data());
+  case SignatureType::ECC:
+    return DetailGetIssuer<SignatureECC>(m_bytes.data());
+  default:
+    return "";
+  }
 }
 
-bool SignedBlobReader::IsSignatureValid() const
+void SignedBlobReader::DoState(PointerWrap& p)
 {
-  return m_bytes.size() >= GetSignatureSize();
-}
-
-std::vector<u8> SignedBlobReader::GetSignatureData() const
-{
-  const size_t signature_size = GetSignatureSize();
-  if (m_bytes.size() < signature_size)
-    return {};
-  return std::vector<u8>(m_bytes.begin(), m_bytes.begin() + signature_size);
+  p.Do(m_bytes);
 }
 
 bool IsValidTMDSize(size_t size)
 {
-  return size <= MAX_TMD_SIZE;
+  return size <= 0x49e4;
 }
 
 TMDReader::TMDReader(std::vector<u8> bytes) : SignedBlobReader(std::move(bytes))
@@ -126,32 +224,37 @@ bool TMDReader::IsValid() const
     return false;
 
   if (m_bytes.size() < sizeof(TMDHeader))
+  {
+    // TMD is too small to contain its base fields.
     return false;
+  }
 
-  const size_t required_size = sizeof(TMDHeader) + GetNumContents() * sizeof(Content);
-  return m_bytes.size() >= required_size;
+  if (m_bytes.size() < sizeof(TMDHeader) + GetNumContents() * sizeof(Content))
+  {
+    // TMD is too small to contain all its expected content entries.
+    return false;
+  }
+
+  return true;
 }
 
 std::vector<u8> TMDReader::GetRawView() const
 {
-  std::vector<u8> view;
-  view.reserve(sizeof(TMDHeader) - offsetof(TMDHeader, tmd_version) +
-               GetNumContents() * CONTENT_VIEW_SIZE);
+  // Base fields
+  std::vector<u8> view(m_bytes.cbegin() + offsetof(TMDHeader, tmd_version),
+                       m_bytes.cbegin() + offsetof(TMDHeader, access_rights));
 
-  const auto* begin = m_bytes.data() + offsetof(TMDHeader, tmd_version);
-  const auto* end = m_bytes.data() + offsetof(TMDHeader, access_rights);
-  view.insert(view.end(), begin, end);
-
-  const auto* version = m_bytes.data() + offsetof(TMDHeader, title_version);
+  const auto version = m_bytes.cbegin() + offsetof(TMDHeader, title_version);
   view.insert(view.end(), version, version + sizeof(TMDHeader::title_version));
 
-  const auto* num_contents = m_bytes.data() + offsetof(TMDHeader, num_contents);
+  const auto num_contents = m_bytes.cbegin() + offsetof(TMDHeader, num_contents);
   view.insert(view.end(), num_contents, num_contents + sizeof(TMDHeader::num_contents));
 
+  // Content views (same as Content, but without the hash)
   for (size_t i = 0; i < GetNumContents(); ++i)
   {
-    const u8* content_base = m_bytes.data() + sizeof(TMDHeader) + i * sizeof(Content);
-    view.insert(view.end(), content_base, content_base + CONTENT_VIEW_SIZE);
+    const auto content_iterator = m_bytes.cbegin() + sizeof(TMDHeader) + i * sizeof(Content);
+    view.insert(view.end(), content_iterator, content_iterator + CONTENT_VIEW_SIZE);
   }
 
   return view;
@@ -192,17 +295,20 @@ DiscIO::Region TMDReader::GetRegion() const
   if (!IsChannel(GetTitleId()))
     return DiscIO::Region::Unknown;
 
-  if (GetTitleId() == 0x0000000100000002ULL)
+#ifndef DIK_STANDALONE
+  if (GetTitleId() == Titles::SYSTEM_MENU)
     return DiscIO::GetSysMenuRegion(GetTitleVersion());
+#endif
 
   const DiscIO::Region region =
       static_cast<DiscIO::Region>(Common::swap16(m_bytes.data() + offsetof(TMDHeader, region)));
+
   return region <= DiscIO::Region::NTSC_K ? region : DiscIO::Region::Unknown;
 }
 
 bool TMDReader::IsvWii() const
 {
-  return *(m_bytes.data() + offsetof(TMDHeader, is_vwii)) != 0;
+  return *(m_bytes.data() + offsetof(TMDHeader, is_vwii));
 }
 
 std::string TMDReader::GetGameID() const
@@ -221,8 +327,10 @@ std::string TMDReader::GetGameTDBID() const
 {
   const u8* begin = m_bytes.data() + offsetof(TMDHeader, title_id) + 4;
   const u8* end = begin + 4;
+
   if (std::all_of(begin, end, Common::IsPrintableCharacter))
-    return std::string(reinterpret_cast<const char*>(begin), reinterpret_cast<const char*>(end));
+    return std::string(begin, end);
+
   return fmt::format("{:016x}", GetTitleId());
 }
 
@@ -233,20 +341,26 @@ u16 TMDReader::GetNumContents() const
 
 bool TMDReader::GetContent(u16 index, Content* content) const
 {
-  if (!content)
+  if (index >= GetNumContents())
+  {
     return false;
-  const u8* base = m_bytes.data() + sizeof(TMDHeader) + index * sizeof(Content);
-  if (base + sizeof(Content) > m_bytes.data() + m_bytes.size())
-    return false;
-  CopyContent(base, content);
+  }
+
+  const u8* content_base = m_bytes.data() + sizeof(TMDHeader) + index * sizeof(Content);
+  content->id = Common::swap32(content_base + offsetof(Content, id));
+  content->index = Common::swap16(content_base + offsetof(Content, index));
+  content->type = Common::swap16(content_base + offsetof(Content, type));
+  content->size = Common::swap64(content_base + offsetof(Content, size));
+  std::copy_n(content_base + offsetof(Content, sha1), content->sha1.size(), content->sha1.begin());
+
   return true;
 }
 
 std::vector<Content> TMDReader::GetContents() const
 {
   std::vector<Content> contents(GetNumContents());
-  for (u16 i = 0; i < contents.size(); ++i)
-    GetContent(i, &contents[i]);
+  for (size_t i = 0; i < contents.size(); ++i)
+    GetContent(static_cast<u16>(i), &contents[i]);
   return contents;
 }
 
@@ -255,9 +369,13 @@ bool TMDReader::FindContentById(u32 id, Content* content) const
   for (u16 index = 0; index < GetNumContents(); ++index)
   {
     if (!GetContent(index, content))
+    {
       return false;
+    }
     if (content->id == id)
+    {
       return true;
+    }
   }
   return false;
 }
@@ -268,48 +386,66 @@ TicketReader::TicketReader(std::vector<u8> bytes) : SignedBlobReader(std::move(b
 
 bool TicketReader::IsValid() const
 {
-  return IsSignatureValid() && m_bytes.size() >= TICKET_SIZE;
+  if (!IsSignatureValid() || m_bytes.empty())
+    return false;
+
+  if (IsV1Ticket())
+    return m_bytes.size() == GetTicketSize();
+
+  return m_bytes.size() % sizeof(Ticket) == 0;
 }
 
 bool TicketReader::IsV1Ticket() const
 {
-  return !m_bytes.empty() && m_bytes[offsetof(Ticket, version)] >= 2;
+  // Version can only be 0 or 1.
+  return GetVersion() == 1;
 }
 
 size_t TicketReader::GetNumberOfTickets() const
 {
-  return m_bytes.size() / TICKET_SIZE;
+  if (IsV1Ticket())
+    return 1;
+
+  return m_bytes.size() / sizeof(Ticket);
 }
 
 u32 TicketReader::GetTicketSize() const
 {
-  return static_cast<u32>(TICKET_SIZE);
+  if (IsV1Ticket())
+  {
+    return Common::swap32(m_bytes.data() + sizeof(Ticket) +
+                          offsetof(V1TicketHeader, v1_ticket_size)) +
+           sizeof(Ticket);
+  }
+
+  return sizeof(Ticket);
 }
 
 std::vector<u8> TicketReader::GetRawTicket(u64 ticket_id_to_find) const
 {
   for (size_t i = 0; i < GetNumberOfTickets(); ++i)
   {
-    const Ticket* ticket = GetTicketPtr(m_bytes, i);
-    if (!ticket)
-      continue;
-    const u8* ticket_bytes = reinterpret_cast<const u8*>(ticket);
-    if (Common::swap64(ticket_bytes + offsetof(Ticket, ticket_id)) == ticket_id_to_find)
-      return {ticket_bytes, ticket_bytes + TICKET_SIZE};
+    const auto ticket_begin = m_bytes.begin() + GetTicketSize() * i;
+    const u64 ticket_id = Common::swap64(&*ticket_begin + offsetof(ES::Ticket, ticket_id));
+    if (ticket_id == ticket_id_to_find)
+      return {ticket_begin, ticket_begin + GetTicketSize()};
   }
   return {};
 }
 
 std::vector<u8> TicketReader::GetRawTicketView(u32 ticket_num) const
 {
-  const Ticket* ticket = GetTicketPtr(m_bytes, ticket_num);
-  if (!ticket)
-    return {};
+  // A ticket view is composed of a version + part of a ticket starting from the ticket_id field.
+  const auto ticket_start = m_bytes.cbegin() + sizeof(Ticket) * ticket_num;
+  const auto view_start = ticket_start + offsetof(Ticket, ticket_id);
 
-  std::vector<u8> view(sizeof(TicketView));
+  std::vector<u8> view(sizeof(u32));
   view[0] = GetVersion();
-  const u8* source = reinterpret_cast<const u8*>(ticket) + offsetof(Ticket, ticket_id);
-  std::copy_n(source, view.size() - 1, view.begin() + 1);
+
+  // Copy the rest of the ticket view structure from the ticket.
+  view.insert(view.end(), view_start, view_start + (sizeof(TicketView) - sizeof(u32)));
+  ASSERT(view.size() == sizeof(TicketView));
+
   return view;
 }
 
@@ -347,7 +483,7 @@ std::array<u8, 16> TicketReader::DecryptTitleKey(HLE::IOSC::ConsoleType console_
     common_key = &NEW_COMMON_KEY;
     break;
   default:
-    dik::log_warn("Unsupported common key index {} for title {:016x}; falling back to index 0",
+    ERROR_LOG_FMT(IOS_ES, "Unsupported common key index {} for title {:016x}; falling back to index 0",
                   static_cast<int>(key_index), GetTitleId());
     common_key = console_type == HLE::IOSC::ConsoleType::RVT ? &DEV_COMMON_KEY : &RETAIL_COMMON_KEY;
     break;
@@ -363,58 +499,365 @@ std::array<u8, 16> TicketReader::DecryptTitleKey(HLE::IOSC::ConsoleType console_
   return key;
 }
 
+std::array<u8, 16> TicketReader::GetTitleKey(const HLE::IOSC& iosc) const
+{
+#ifndef DIK_STANDALONE
+  u8 iv[16] = {};
+  std::copy_n(&m_bytes[offsetof(Ticket, title_id)], sizeof(Ticket::title_id), iv);
+
+  u8 index = m_bytes.at(offsetof(Ticket, common_key_index));
+  if (index >= HLE::IOSC::COMMON_KEY_HANDLES.size())
+  {
+    PanicAlertFmt("Bad common key index for title {:016x}: {} -- using common key 0", GetTitleId(),
+                  index);
+    index = 0;
+  }
+  auto common_key_handle = HLE::IOSC::COMMON_KEY_HANDLES[index];
+
+  std::array<u8, 16> key;
+  iosc.Decrypt(common_key_handle, iv, &m_bytes[offsetof(Ticket, title_key)], 16, key.data(),
+               PID_ES);
+  return key;
+#else
+  return DecryptTitleKey(HLE::IOSC::ConsoleType::Retail, GetCommonKeyIndex());
+#endif
+}
+
 std::array<u8, 16> TicketReader::GetTitleKey() const
 {
+#ifndef DIK_STANDALONE
+  return GetTitleKey(HLE::IOSC{GetConsoleType()});
+#else
   return DecryptTitleKey(GetConsoleType(), GetCommonKeyIndex());
+#endif
 }
 
 HLE::IOSC::ConsoleType TicketReader::GetConsoleType() const
 {
-  return GetIssuer() == "Root-CA00000002-XS00000006" ? HLE::IOSC::ConsoleType::RVT :
-                                                       HLE::IOSC::ConsoleType::Retail;
+  const bool is_rvt = GetIssuer() == "Root-CA00000002-XS00000006";
+  return is_rvt ? HLE::IOSC::ConsoleType::RVT : HLE::IOSC::ConsoleType::Retail;
 }
 
 void TicketReader::DeleteTicket(u64 ticket_id_to_delete)
 {
   std::vector<u8> new_ticket;
-  new_ticket.reserve(m_bytes.size());
-  for (size_t i = 0; i < GetNumberOfTickets(); ++i)
+  const size_t num_tickets = GetNumberOfTickets();
+  for (size_t i = 0; i < num_tickets; ++i)
   {
-    const Ticket* ticket = GetTicketPtr(m_bytes, i);
-    if (!ticket)
-      continue;
-    const u8* ticket_bytes = reinterpret_cast<const u8*>(ticket);
-    if (Common::swap64(ticket_bytes + offsetof(Ticket, ticket_id)) == ticket_id_to_delete)
-      continue;
-    new_ticket.insert(new_ticket.end(), ticket_bytes, ticket_bytes + TICKET_SIZE);
+    const auto ticket_start = m_bytes.cbegin() + GetTicketSize() * i;
+    const u64 ticket_id = Common::swap64(&*ticket_start + offsetof(Ticket, ticket_id));
+    if (ticket_id != ticket_id_to_delete)
+      new_ticket.insert(new_ticket.end(), ticket_start, ticket_start + GetTicketSize());
   }
+
   m_bytes = std::move(new_ticket);
 }
 
+#ifndef DIK_STANDALONE
+HLE::ReturnCode TicketReader::Unpersonalise(HLE::IOSC& iosc)
+{
+  const auto ticket_begin = m_bytes.begin();
+
+  // IOS uses IOSC to compute an AES key from the peer public key and the device's private ECC key,
+  // which is used the decrypt the title key. The IV is the ticket ID (8 bytes), zero extended.
+  using namespace HLE;
+  IOSC::Handle public_handle;
+  ReturnCode ret =
+      iosc.CreateObject(&public_handle, IOSC::TYPE_PUBLIC_KEY, IOSC::ObjectSubType::ECC233, PID_ES);
+  if (ret != IPC_SUCCESS)
+    return ret;
+
+  const auto public_key_iter = ticket_begin + offsetof(Ticket, server_public_key);
+  ret = iosc.ImportPublicKey(public_handle, &*public_key_iter, nullptr, PID_ES);
+  if (ret != IPC_SUCCESS)
+    return ret;
+
+  IOSC::Handle key_handle;
+  ret = iosc.CreateObject(&key_handle, IOSC::TYPE_SECRET_KEY, IOSC::ObjectSubType::AES128, PID_ES);
+  if (ret != IPC_SUCCESS)
+    return ret;
+
+  ret = iosc.ComputeSharedKey(key_handle, IOSC::HANDLE_CONSOLE_KEY, public_handle, PID_ES);
+  if (ret != IPC_SUCCESS)
+    return ret;
+
+  std::array<u8, 16> iv{};
+  std::copy_n(ticket_begin + offsetof(Ticket, ticket_id), sizeof(Ticket::ticket_id), iv.begin());
+
+  std::array<u8, 16> key{};
+  ret = iosc.Decrypt(key_handle, iv.data(), &*ticket_begin + offsetof(Ticket, title_key),
+                     sizeof(Ticket::title_key), key.data(), PID_ES);
+  // Finally, IOS copies the decrypted title key back to the ticket buffer.
+  if (ret == IPC_SUCCESS)
+    std::ranges::copy(key, ticket_begin + offsetof(Ticket, title_key));
+
+  return ret;
+}
+#endif
+
 void TicketReader::OverwriteCommonKeyIndex(u8 index)
 {
-  if (GetNumberOfTickets() == 0)
-    return;
   m_bytes[offsetof(Ticket, common_key_index)] = index;
 }
 
-bool IsTitleType(u64 title_id, u32 title_type)
+#ifndef DIK_STANDALONE
+struct SharedContentMap::Entry
 {
-  return static_cast<u32>(title_id >> 32) == title_type;
+  // ID string
+  std::array<u8, 8> id;
+  // Binary SHA1 hash
+  std::array<u8, 20> sha1;
+};
+
+constexpr char CONTENT_MAP_PATH[] = "/shared1/content.map";
+SharedContentMap::SharedContentMap(HLE::FSCore& fs_core) : m_fs{fs_core.GetFS()}
+{
+  static_assert(sizeof(Entry) == 28, "SharedContentMap::Entry has the wrong size");
+
+  Entry entry;
+  const auto fd =
+      fs_core.Open(PID_KERNEL, PID_KERNEL, CONTENT_MAP_PATH, HLE::FS::Mode::Read, {}, &m_ticks);
+  if (fd.Get() < 0)
+    return;
+  while (fs_core.Read(fd.Get(), &entry, 1, &m_ticks) == sizeof(entry))
+  {
+    m_entries.push_back(entry);
+    m_last_id++;
+  }
 }
 
-bool IsChannel(u64 title_id)
+SharedContentMap::~SharedContentMap() = default;
+
+std::optional<std::string>
+SharedContentMap::GetFilenameFromSHA1(const std::array<u8, 20>& sha1) const
 {
-  constexpr u32 CHANNEL = 0x00010001;
-  constexpr u32 SYSTEM_CHANNEL = 0x00010002;
-  constexpr u32 GAME_WITH_CHANNEL = 0x00010004;
-  constexpr u32 HIDDEN_CHANNEL = 0x00010008;
+  const auto it = std::ranges::find(m_entries, sha1, &Entry::sha1);
+  if (it == m_entries.end())
+    return {};
 
-  if (title_id == 0x0000000100000002ULL)
-    return true;
-
-  const u32 type = static_cast<u32>(title_id >> 32);
-  return type == CHANNEL || type == SYSTEM_CHANNEL || type == GAME_WITH_CHANNEL || type == HIDDEN_CHANNEL;
+  const std::string_view id_string(reinterpret_cast<const char*>(it->id.data()), it->id.size());
+  return fmt::format("/shared1/{}.app", id_string);
 }
 
-}  // namespace ES
+std::vector<std::array<u8, 20>> SharedContentMap::GetHashes() const
+{
+  std::vector<std::array<u8, 20>> hashes;
+  hashes.reserve(m_entries.size());
+  for (const auto& content_entry : m_entries)
+    hashes.emplace_back(content_entry.sha1);
+
+  return hashes;
+}
+
+std::string SharedContentMap::AddSharedContent(const std::array<u8, 20>& sha1)
+{
+  if (auto filename = GetFilenameFromSHA1(sha1))
+    return *std::move(filename);
+
+  Entry& entry = m_entries.emplace_back();
+  static_assert(sizeof(m_last_id) == 4,
+                "'m_last_id' must be represented by 8 characters when formatted in hexadecimal.");
+  static_assert(std::tuple_size_v<decltype(entry.id)> == sizeof(m_last_id) * 2,
+                "'entry.id' must be a std::array capable of storing every nibble of 'm_last_id'.");
+  fmt::format_to(entry.id.data(), "{:08x}", m_last_id);
+  entry.sha1 = sha1;
+
+  WriteEntries();
+  m_last_id++;
+
+  const std::string_view id_string(reinterpret_cast<const char*>(entry.id.data()), entry.id.size());
+  return fmt::format("/shared1/{}.app", id_string);
+}
+
+bool SharedContentMap::DeleteSharedContent(const std::array<u8, 20>& sha1)
+{
+  std::erase_if(m_entries, [&sha1](const auto& entry) { return entry.sha1 == sha1; });
+  return WriteEntries();
+}
+
+bool SharedContentMap::WriteEntries() const
+{
+  // Temporary files are only 12 characters long and must match the final file name
+  const std::string temp_path = "/tmp/content.map";
+  // Atomically write the new content map.
+  {
+    constexpr HLE::FS::Modes modes{HLE::FS::Mode::ReadWrite, HLE::FS::Mode::ReadWrite,
+                                   HLE::FS::Mode::None};
+    const auto file = m_fs->CreateAndOpenFile(PID_KERNEL, PID_KERNEL, temp_path, modes);
+    if (!file || !file->Write(m_entries.data(), m_entries.size()))
+      return false;
+  }
+  return m_fs->Rename(PID_KERNEL, PID_KERNEL, temp_path, CONTENT_MAP_PATH) ==
+         HLE::FS::ResultCode::Success;
+}
+
+static std::pair<u32, u64> ReadUidSysEntry(HLE::FSCore& fs, u64 fd, u64* ticks)
+{
+  u64 title_id = 0;
+  if (fs.Read(fd, &title_id, 1, ticks) != sizeof(title_id))
+    return {};
+
+  u32 uid = 0;
+  if (fs.Read(fd, &uid, 1, ticks) != sizeof(uid))
+    return {};
+
+  return {Common::swap32(uid), Common::swap64(title_id)};
+}
+
+constexpr char UID_MAP_PATH[] = "/sys/uid.sys";
+UIDSys::UIDSys(HLE::FSCore& fs_core) : m_fs{fs_core.GetFS()}
+{
+  if (const auto fd =
+          fs_core.Open(PID_KERNEL, PID_KERNEL, UID_MAP_PATH, HLE::FS::Mode::Read, {}, &m_ticks);
+      fd.Get() >= 0)
+  {
+    while (true)
+    {
+      std::pair<u32, u64> entry = ReadUidSysEntry(fs_core, fd.Get(), &m_ticks);
+      if (!entry.first && !entry.second)
+        break;
+
+      m_entries.insert(std::move(entry));
+    }
+  }
+
+  if (m_entries.empty())
+  {
+    GetOrInsertUIDForTitle(Titles::SYSTEM_MENU);
+  }
+}
+
+u32 UIDSys::GetUIDFromTitle(u64 title_id) const
+{
+  const auto it = std::ranges::find(m_entries, title_id, Common::Projection::Value{});
+  return (it == m_entries.end()) ? 0 : it->first;
+}
+
+u32 UIDSys::GetNextUID() const
+{
+  if (m_entries.empty())
+    return FIRST_PPC_UID;
+  return m_entries.rbegin()->first + 1;
+}
+
+u32 UIDSys::GetOrInsertUIDForTitle(const u64 title_id)
+{
+  const u32 current_uid = GetUIDFromTitle(title_id);
+  if (current_uid)
+  {
+    INFO_LOG_FMT(IOS_ES, "Title {:016x} already exists in uid.sys", title_id);
+    return current_uid;
+  }
+
+  const u32 uid = GetNextUID();
+  m_entries.insert({uid, title_id});
+
+  // Byte swap before writing.
+  const u64 swapped_title_id = Common::swap64(title_id);
+  const u32 swapped_uid = Common::swap32(uid);
+
+  constexpr HLE::FS::Modes modes{HLE::FS::Mode::ReadWrite, HLE::FS::Mode::ReadWrite,
+                                 HLE::FS::Mode::None};
+  const auto file = m_fs->CreateAndOpenFile(PID_KERNEL, PID_KERNEL, UID_MAP_PATH, modes);
+  if (!file || !file->Seek(0, HLE::FS::SeekMode::End) || !file->Write(&swapped_title_id, 1) ||
+      !file->Write(&swapped_uid, 1))
+  {
+    ERROR_LOG_FMT(IOS_ES, "Failed to write to /sys/uid.sys");
+    return 0;
+  }
+
+  return uid;
+}
+#endif  // !DIK_STANDALONE
+
+CertReader::CertReader(std::vector<u8>&& bytes) : SignedBlobReader(std::move(bytes))
+{
+  if (!IsSignatureValid())
+    return;
+
+  using CertStructInfo = std::tuple<SignatureType, PublicKeyType, size_t>;
+  static constexpr std::array<CertStructInfo, 4> types{{
+      {SignatureType::RSA4096, PublicKeyType::RSA2048, sizeof(CertRSA4096RSA2048)},
+      {SignatureType::RSA2048, PublicKeyType::RSA2048, sizeof(CertRSA2048RSA2048)},
+      {SignatureType::RSA2048, PublicKeyType::ECC, sizeof(CertRSA2048ECC)},
+      {SignatureType::ECC, PublicKeyType::ECC, sizeof(CertECC)},
+  }};
+
+  const auto info = std::ranges::find_if(types, [this](const CertStructInfo& entry) {
+    return m_bytes.size() >= std::get<2>(entry) && std::get<0>(entry) == GetSignatureType() &&
+           std::get<1>(entry) == GetPublicKeyType();
+  });
+
+  if (info == types.cend())
+    return;
+
+  m_bytes.resize(std::get<2>(*info));
+  m_is_valid = true;
+}
+
+bool CertReader::IsValid() const
+{
+  return m_is_valid;
+}
+
+u32 CertReader::GetId() const
+{
+  const size_t offset = GetSignatureSize() + offsetof(CertHeader, id);
+  return Common::swap32(m_bytes.data() + offset);
+}
+
+std::string CertReader::GetName() const
+{
+  const char* name = reinterpret_cast<const char*>(m_bytes.data() + GetSignatureSize() +
+                                                   offsetof(CertHeader, name));
+  return std::string(name, strnlen(name, sizeof(CertHeader::name)));
+}
+
+PublicKeyType CertReader::GetPublicKeyType() const
+{
+  const size_t offset = GetSignatureSize() + offsetof(CertHeader, public_key_type);
+  return static_cast<PublicKeyType>(Common::swap32(m_bytes.data() + offset));
+}
+
+template <typename T, typename It>
+std::vector<u8> DetailGetPublicKey(It begin, size_t extra_data = 0)
+{
+  const auto key_begin = begin + offsetof(T, public_key);
+  return {key_begin, key_begin + sizeof(T::public_key) + extra_data};
+}
+
+std::vector<u8> CertReader::GetPublicKey() const
+{
+  switch (GetSignatureType())
+  {
+  case SignatureType::RSA4096:
+    return DetailGetPublicKey<CertRSA4096RSA2048>(m_bytes.begin(), 4);
+  case SignatureType::RSA2048:
+    if (GetPublicKeyType() == PublicKeyType::RSA2048)
+      return DetailGetPublicKey<CertRSA2048RSA2048>(m_bytes.begin(), 4);
+    return DetailGetPublicKey<CertRSA2048ECC>(m_bytes.begin());
+  case SignatureType::ECC:
+    return DetailGetPublicKey<CertECC>(m_bytes.begin());
+  default:
+    return {};
+  }
+}
+
+std::map<std::string, CertReader> ParseCertChain(const std::vector<u8>& chain)
+{
+  std::map<std::string, CertReader> certs;
+
+  size_t processed = 0;
+  while (processed != chain.size())
+  {
+    CertReader cert_reader{std::vector<u8>(chain.begin() + processed, chain.end())};
+    if (!cert_reader.IsValid())
+      return certs;
+
+    processed += cert_reader.GetBytes().size();
+    std::string name = cert_reader.GetName();
+    certs.emplace(std::move(name), std::move(cert_reader));
+  }
+  return certs;
+}
+}  // namespace IOS::ES

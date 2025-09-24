@@ -12,10 +12,12 @@
 #include "DiscIO/DirectoryBlob.h"
 #include "DiscIO/RiivolutionParser.h"
 
+#ifndef DIK_STANDALONE
 namespace Core
 {
 class CPUThreadGuard;
 }
+#endif
 
 namespace DiscIO::Riivolution
 {
@@ -80,8 +82,15 @@ enum class PatchIndex
 
 void ApplyPatchesToFiles(std::span<const Patch> patches, PatchIndex index,
                          std::vector<FSTBuilderNode>* fst, FSTBuilderNode* dol_node);
+#ifndef DIK_STANDALONE
 void ApplyGeneralMemoryPatches(const Core::CPUThreadGuard& guard, std::span<const Patch> patches);
 void ApplyApploaderMemoryPatches(const Core::CPUThreadGuard& guard, std::span<const Patch> patches,
                                  u32 ram_address, u32 ram_length);
+#else
+template <typename Guard>
+inline void ApplyGeneralMemoryPatches(const Guard&, std::span<const Patch>) {}
+template <typename Guard>
+inline void ApplyApploaderMemoryPatches(const Guard&, std::span<const Patch>, u32, u32) {}
+#endif
 std::optional<SavegameRedirect> ExtractSavegameRedirect(std::span<const Patch> riivolution_patches);
 }  // namespace DiscIO::Riivolution

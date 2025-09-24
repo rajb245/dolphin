@@ -39,15 +39,13 @@
 #include "Common/StringUtil.h"
 #include "Common/Swap.h"
 #include "Common/Version.h"
+#ifndef DIK_STANDALONE
 #include "Core/IOS/Device.h"
-#ifndef DIK_STANDALONE
 #include "Core/IOS/ES/ES.h"
-#endif
-#include "Core/IOS/ES/Formats.h"
 #include "Core/IOS/IOS.h"
-#ifndef DIK_STANDALONE
 #include "Core/IOS/IOSC.h"
 #endif
+#include "Core/IOS/ES/Formats.h"
 #include "DiscIO/Blob.h"
 #include "DiscIO/DiscScrubber.h"
 #include "DiscIO/DiscUtils.h"
