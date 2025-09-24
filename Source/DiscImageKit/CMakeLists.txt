@@ -53,7 +53,6 @@ target_include_directories(DiscImageKit
   PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/../Core
-    ${CMAKE_CURRENT_SOURCE_DIR}/../Common
 )
 
 target_include_directories(DiscImageKit
