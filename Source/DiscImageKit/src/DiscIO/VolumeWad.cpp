@@ -209,7 +209,8 @@ IOS::ES::TicketReader VolumeWAD::GetTicketWithFixedCommonKey() const
     return m_ticket;
 
   const u8 specified_index = m_ticket.GetCommonKeyIndex();
-  if (specified_index < IOS::HLE::IOSC::COMMON_KEY_HANDLES.size() &&
+  constexpr u8 common_key_count = IOS::ES::GetSupportedCommonKeyCount();
+  if (specified_index < common_key_count &&
       CheckContentIntegrity(smallest_content, content_data, m_ticket))
   {
     return m_ticket;  // The common key index is already correct
@@ -217,7 +218,7 @@ IOS::ES::TicketReader VolumeWAD::GetTicketWithFixedCommonKey() const
 
   // Try every common key index except the one we already tried
   IOS::ES::TicketReader new_ticket = m_ticket;
-  for (u8 i = 0; i < IOS::HLE::IOSC::COMMON_KEY_HANDLES.size(); ++i)
+  for (u8 i = 0; i < common_key_count; ++i)
   {
     if (i != specified_index)
     {

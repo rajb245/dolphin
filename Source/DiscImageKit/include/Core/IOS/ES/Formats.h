@@ -348,5 +348,12 @@ private:
 };
 
 std::map<std::string, CertReader> ParseCertChain(const std::vector<u8>& chain);
+
+constexpr u8 GetSupportedCommonKeyCount()
+{
+  return 2;
+}
+bool VerifyTicketSignature(const TicketReader& ticket, const std::vector<u8>& cert_chain);
+bool VerifyTmdSignature(const TMDReader& tmd, const std::vector<u8>& cert_chain);
 }  // namespace ES
 }  // namespace IOS

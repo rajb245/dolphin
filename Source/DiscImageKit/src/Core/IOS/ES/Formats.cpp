@@ -16,6 +16,9 @@
 
 #include <fmt/format.h>
 
+#include <mbedtls/md.h>
+#include <mbedtls/rsa.h>
+
 #include "Common/Assert.h"
 #include "Common/ChunkFile.h"
 #include "Common/CommonTypes.h"
@@ -859,5 +862,81 @@ std::map<std::string, CertReader> ParseCertChain(const std::vector<u8>& chain)
     certs.emplace(std::move(name), std::move(cert_reader));
   }
   return certs;
+}
+
+namespace
+{
+bool VerifySignedBlob(const SignedBlobReader& blob, const CertReader& issuer_cert)
+{
+  if (!blob.IsSignatureValid())
+    return false;
+
+  if (issuer_cert.GetPublicKeyType() != PublicKeyType::RSA2048)
+    return false;
+
+  const std::vector<u8> signature = blob.GetSignatureData();
+  const std::vector<u8> key_data = issuer_cert.GetPublicKey();
+
+  if (key_data.size() <= 4)
+    return false;
+
+  const size_t modulus_size = key_data.size() - 4;
+  if (signature.size() != modulus_size)
+    return false;
+
+  mbedtls_rsa_context rsa;
+  mbedtls_rsa_init(&rsa, MBEDTLS_RSA_PKCS_V15, 0);
+
+  const unsigned char* modulus = key_data.data();
+  const unsigned char* exponent = key_data.data() + modulus_size;
+
+  int ret = mbedtls_mpi_read_binary(&rsa.N, modulus, modulus_size);
+  if (ret == 0)
+    ret = mbedtls_mpi_read_binary(&rsa.E, exponent, 4);
+  if (ret == 0)
+  {
+    rsa.len = modulus_size;
+    ret = mbedtls_rsa_complete(&rsa);
+  }
+
+  if (ret == 0)
+  {
+    const std::array<u8, 20> digest = blob.GetSha1();
+    ret = mbedtls_rsa_pkcs1_verify(&rsa, nullptr, nullptr, MBEDTLS_RSA_PUBLIC, MBEDTLS_MD_SHA1, 0,
+                                   digest.data(), signature.data());
+  }
+
+  mbedtls_rsa_free(&rsa);
+  return ret == 0;
+}
+
+bool VerifySignedBlob(const SignedBlobReader& blob, const std::vector<u8>& cert_chain)
+{
+  const std::string issuer = blob.GetIssuer();
+  const std::vector<std::string> issuer_parts = SplitString(issuer, '-');
+  if (issuer_parts.size() != 3)
+    return false;
+
+  const std::map<std::string, CertReader> certs = ParseCertChain(cert_chain);
+  const auto issuer_cert_it = certs.find(issuer_parts[2]);
+  if (issuer_cert_it == certs.end() || !issuer_cert_it->second.IsValid())
+    return false;
+
+  return VerifySignedBlob(blob, issuer_cert_it->second);
+}
+}  // namespace
+
+bool VerifyTicketSignature(const TicketReader& ticket, const std::vector<u8>& cert_chain)
+{
+  if (!ticket.IsValid())
+    return false;
+  return VerifySignedBlob(ticket, cert_chain);
+}
+
+bool VerifyTmdSignature(const TMDReader& tmd, const std::vector<u8>& cert_chain)
+{
+  if (!tmd.IsValid())
+    return false;
+  return VerifySignedBlob(tmd, cert_chain);
 }
 }  // namespace IOS::ES

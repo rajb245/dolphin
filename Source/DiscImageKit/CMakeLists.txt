@@ -26,8 +26,6 @@ add_library(DiscImageKit STATIC
   src/DiscIO/LaggedFibonacciGenerator.cpp
   src/DiscIO/NANDImporter.cpp
   src/DiscIO/NFSBlob.cpp
-  src/DiscIO/RiivolutionParser.cpp
-  src/DiscIO/RiivolutionPatcher.cpp
   src/DiscIO/ScrubbedBlob.cpp
   src/DiscIO/SplitFileBlob.cpp
   src/DiscIO/TGCBlob.cpp

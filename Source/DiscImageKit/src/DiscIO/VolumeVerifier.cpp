@@ -39,12 +39,7 @@
 #include "Common/StringUtil.h"
 #include "Common/Swap.h"
 #include "Common/Version.h"
-#ifndef DIK_STANDALONE
-#include "Core/IOS/Device.h"
-#include "Core/IOS/ES/ES.h"
-#include "Core/IOS/IOS.h"
 #include "Core/IOS/IOSC.h"
-#endif
 #include "Core/IOS/ES/Formats.h"
 #include "DiscIO/Blob.h"
 #include "DiscIO/DiscScrubber.h"
@@ -582,29 +577,19 @@ bool VolumeVerifier::CheckPartition(const Partition& partition)
     return false;
   }
 
-#ifndef DIK_STANDALONE
   if (!m_is_datel)
   {
-    const auto console_type =
-        IsDebugSigned() ? IOS::HLE::IOSC::ConsoleType::RVT : IOS::HLE::IOSC::ConsoleType::Retail;
-    IOS::HLE::Kernel ios(console_type);
-    auto& es = ios.GetESCore();
     const std::vector<u8>& cert_chain = m_volume.GetCertificateChain(partition);
+    const IOS::ES::TicketReader& ticket = m_volume.GetTicket(partition);
+    const IOS::ES::TMDReader& tmd = m_volume.GetTMD(partition);
 
-    if (IOS::HLE::IPC_SUCCESS !=
-            es.VerifyContainer(IOS::HLE::ESCore::VerifyContainerType::Ticket,
-                               IOS::HLE::ESCore::VerifyMode::DoNotUpdateCertStore,
-                               m_volume.GetTicket(partition), cert_chain) ||
-        IOS::HLE::IPC_SUCCESS !=
-            es.VerifyContainer(IOS::HLE::ESCore::VerifyContainerType::TMD,
-                               IOS::HLE::ESCore::VerifyMode::DoNotUpdateCertStore,
-                               m_volume.GetTMD(partition), cert_chain))
+    if (!IOS::ES::VerifyTicketSignature(ticket, cert_chain) ||
+        !IOS::ES::VerifyTmdSignature(tmd, cert_chain))
     {
       AddProblem(Severity::Low,
                  Common::FmtFormatT("The {0} partition is not correctly signed.", name));
     }
   }
-#endif
 
   if (m_volume.HasWiiHashes() && !m_volume.CheckH3TableIntegrity(partition))
   {
@@ -987,24 +972,15 @@ void VolumeVerifier::CheckMisc()
     }
   }
 
-#ifndef DIK_STANDALONE
   if (m_volume.GetVolumeType() == Platform::WiiWAD)
   {
-    IOS::HLE::Kernel ios(m_ticket.GetConsoleType());
-    auto& es = ios.GetESCore();
     const std::vector<u8>& cert_chain = m_volume.GetCertificateChain(PARTITION_NONE);
-
-    if (IOS::HLE::IPC_SUCCESS !=
-        es.VerifyContainer(IOS::HLE::ESCore::VerifyContainerType::Ticket,
-                           IOS::HLE::ESCore::VerifyMode::DoNotUpdateCertStore, m_ticket,
-                           cert_chain))
+    if (!IOS::ES::VerifyTicketSignature(m_ticket, cert_chain))
     {
       AddProblem(Severity::Low, Common::GetStringT("The ticket is not correctly signed."));
     }
 
-    if (IOS::HLE::IPC_SUCCESS !=
-        es.VerifyContainer(IOS::HLE::ESCore::VerifyContainerType::TMD,
-                           IOS::HLE::ESCore::VerifyMode::DoNotUpdateCertStore, tmd, cert_chain))
+    if (!IOS::ES::VerifyTmdSignature(tmd, cert_chain))
     {
       AddProblem(
           Severity::Medium,
@@ -1013,7 +989,6 @@ void VolumeVerifier::CheckMisc()
                              "also refuse to copy or move it back to the NAND."));
     }
   }
-#endif
 
   if (m_volume.IsNKit())
   {
