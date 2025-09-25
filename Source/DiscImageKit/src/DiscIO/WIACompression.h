@@ -8,21 +8,21 @@
 #include <optional>
 #include <vector>
 
-#if DIK_HAVE_BZIP2
-#include <bzlib.h>
-#endif
-
-#if DIK_HAVE_LZMA
-#include <lzma.h>
-#endif
-
-#if DIK_HAVE_ZSTD
-#include <zstd.h>
-#endif
-
 #include "Common/CommonTypes.h"
 #include "Common/Crypto/SHA1.h"
 #include "DiscIO/LaggedFibonacciGenerator.h"
+
+#ifndef DIK_HAVE_BZIP2
+#define DIK_HAVE_BZIP2 1
+#endif
+
+#ifndef DIK_HAVE_LZMA
+#define DIK_HAVE_LZMA 1
+#endif
+
+#ifndef DIK_HAVE_ZSTD
+#define DIK_HAVE_ZSTD 1
+#endif
 
 namespace DiscIO
 {
@@ -84,14 +84,16 @@ private:
 class Bzip2Decompressor final : public Decompressor
 {
 public:
+  Bzip2Decompressor();
   ~Bzip2Decompressor() override;
 
   bool Decompress(const DecompressionBuffer& in, DecompressionBuffer* out,
                   size_t* in_bytes_read) override;
 
 private:
-  bz_stream m_stream = {};
   bool m_started = false;
+  struct Impl;
+  std::unique_ptr<Impl> m_impl;
 };
 #endif
 
@@ -106,11 +108,10 @@ public:
                   size_t* in_bytes_read) override;
 
 private:
-  lzma_stream m_stream = LZMA_STREAM_INIT;
-  lzma_options_lzma m_options = {};
-  lzma_filter m_filters[2];
   bool m_started = false;
   bool m_error_occurred = false;
+  struct Impl;
+  std::unique_ptr<Impl> m_impl;
 };
 #endif
 
@@ -125,7 +126,8 @@ public:
                   size_t* in_bytes_read) override;
 
 private:
-  ZSTD_DStream* m_stream;
+  struct Impl;
+  std::unique_ptr<Impl> m_impl;
 };
 #endif
 
@@ -211,9 +213,11 @@ public:
 private:
   void ExpandBuffer(size_t bytes_to_add);
 
-  bz_stream m_stream = {};
   std::vector<u8> m_buffer;
   int m_compression_level;
+  size_t m_bytes_written = 0;
+  struct Impl;
+  std::unique_ptr<Impl> m_impl;
 };
 #endif
 
@@ -235,11 +239,11 @@ public:
 private:
   void ExpandBuffer(size_t bytes_to_add);
 
-  lzma_stream m_stream = LZMA_STREAM_INIT;
-  lzma_options_lzma m_options = {};
-  lzma_filter m_filters[2];
   std::vector<u8> m_buffer;
   bool m_initialization_failed = false;
+  size_t m_bytes_written = 0;
+  struct Impl;
+  std::unique_ptr<Impl> m_impl;
 };
 #endif
 
@@ -254,15 +258,15 @@ public:
   bool Compress(const u8* data, size_t size) override;
   bool End() override;
 
-  const u8* GetData() const override { return m_buffer.data(); }
-  size_t GetSize() const override { return m_out_buffer.pos; }
+  const u8* GetData() const override;
+  size_t GetSize() const override;
 
 private:
   void ExpandBuffer(size_t bytes_to_add);
 
-  ZSTD_CStream* m_stream;
-  ZSTD_outBuffer m_out_buffer{};
   std::vector<u8> m_buffer;
+  struct Impl;
+  std::unique_ptr<Impl> m_impl;
 };
 #endif
 

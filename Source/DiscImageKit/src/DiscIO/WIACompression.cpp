@@ -160,35 +160,44 @@ bool PurgeDecompressor::Decompress(const DecompressionBuffer& in, DecompressionB
 
 #if DIK_HAVE_BZIP2
 
+struct Bzip2Decompressor::Impl
+{
+  bz_stream stream{};
+};
+
+Bzip2Decompressor::Bzip2Decompressor() : m_impl(std::make_unique<Impl>()) {}
+
 Bzip2Decompressor::~Bzip2Decompressor()
 {
   if (m_started)
-    BZ2_bzDecompressEnd(&m_stream);
+    BZ2_bzDecompressEnd(&m_impl->stream);
 }
 
 bool Bzip2Decompressor::Decompress(const DecompressionBuffer& in, DecompressionBuffer* out,
                                    size_t* in_bytes_read)
 {
+  auto& stream = m_impl->stream;
+
   if (!m_started)
   {
-    if (BZ2_bzDecompressInit(&m_stream, 0, 0) != BZ_OK)
+    if (BZ2_bzDecompressInit(&stream, 0, 0) != BZ_OK)
       return false;
 
     m_started = true;
   }
 
   char* const in_ptr = reinterpret_cast<char*>(const_cast<u8*>(in.data.data() + *in_bytes_read));
-  m_stream.next_in = in_ptr;
-  m_stream.avail_in = MathUtil::SaturatingCast<u32>(in.bytes_written - *in_bytes_read);
+  stream.next_in = in_ptr;
+  stream.avail_in = MathUtil::SaturatingCast<u32>(in.bytes_written - *in_bytes_read);
 
   char* const out_ptr = reinterpret_cast<char*>(out->data.data() + out->bytes_written);
-  m_stream.next_out = out_ptr;
-  m_stream.avail_out = MathUtil::SaturatingCast<u32>(out->data.size() - out->bytes_written);
+  stream.next_out = out_ptr;
+  stream.avail_out = MathUtil::SaturatingCast<u32>(out->data.size() - out->bytes_written);
 
-  const int result = BZ2_bzDecompress(&m_stream);
+  const int result = BZ2_bzDecompress(&stream);
 
-  *in_bytes_read += m_stream.next_in - in_ptr;
-  out->bytes_written += m_stream.next_out - out_ptr;
+  *in_bytes_read += stream.next_in - in_ptr;
+  out->bytes_written += stream.next_out - out_ptr;
 
   m_done = result == BZ_STREAM_END;
   return result == BZ_OK || result == BZ_STREAM_END;
@@ -198,15 +207,25 @@ bool Bzip2Decompressor::Decompress(const DecompressionBuffer& in, DecompressionB
 
 #if DIK_HAVE_LZMA
 
-LZMADecompressor::LZMADecompressor(bool lzma2, const u8* filter_options, size_t filter_options_size)
+struct LZMADecompressor::Impl
 {
-  m_options.preset_dict = nullptr;
+  lzma_stream stream = LZMA_STREAM_INIT;
+  lzma_options_lzma options{};
+  lzma_filter filters[2]{};
+};
+
+LZMADecompressor::LZMADecompressor(bool lzma2, const u8* filter_options,
+                                   size_t filter_options_size)
+    : m_impl(std::make_unique<Impl>())
+{
+  auto& options = m_impl->options;
+  options.preset_dict = nullptr;
 
   if (!lzma2 && filter_options_size == 5)
   {
     // The dictionary size is stored as a 32-bit little endian unsigned integer
-    static_assert(sizeof(m_options.dict_size) == sizeof(u32));
-    std::memcpy(&m_options.dict_size, filter_options + 1, sizeof(u32));
+    static_assert(sizeof(options.dict_size) == sizeof(u32));
+    std::memcpy(&options.dict_size, filter_options + 1, sizeof(u32));
 
     const u8 d = filter_options[0];
     if (d >= (9 * 5 * 5))
@@ -215,10 +234,10 @@ LZMADecompressor::LZMADecompressor(bool lzma2, const u8* filter_options, size_t 
     }
     else
     {
-      m_options.lc = d % 9;
+      options.lc = d % 9;
       const u8 e = d / 9;
-      m_options.pb = e / 5;
-      m_options.lp = e % 5;
+      options.pb = e / 5;
+      options.lp = e % 5;
     }
   }
   else if (lzma2 && filter_options_size == 1)
@@ -227,48 +246,51 @@ LZMADecompressor::LZMADecompressor(bool lzma2, const u8* filter_options, size_t 
     if (d > 40)
       m_error_occurred = true;
     else
-      m_options.dict_size = d == 40 ? 0xFFFFFFFF : LZMA2DictionarySize(d);
+      options.dict_size = d == 40 ? 0xFFFFFFFF : LZMA2DictionarySize(d);
   }
   else
   {
     m_error_occurred = true;
   }
 
-  m_filters[0].id = lzma2 ? LZMA_FILTER_LZMA2 : LZMA_FILTER_LZMA1;
-  m_filters[0].options = &m_options;
-  m_filters[1].id = LZMA_VLI_UNKNOWN;
-  m_filters[1].options = nullptr;
+  auto& filters = m_impl->filters;
+  filters[0].id = lzma2 ? LZMA_FILTER_LZMA2 : LZMA_FILTER_LZMA1;
+  filters[0].options = &options;
+  filters[1].id = LZMA_VLI_UNKNOWN;
+  filters[1].options = nullptr;
 }
 
 LZMADecompressor::~LZMADecompressor()
 {
   if (m_started)
-    lzma_end(&m_stream);
+    lzma_end(&m_impl->stream);
 }
 
 bool LZMADecompressor::Decompress(const DecompressionBuffer& in, DecompressionBuffer* out,
                                   size_t* in_bytes_read)
 {
+  auto& stream = m_impl->stream;
+
   if (!m_started)
   {
-    if (m_error_occurred || lzma_raw_decoder(&m_stream, m_filters) != LZMA_OK)
+    if (m_error_occurred || lzma_raw_decoder(&stream, m_impl->filters) != LZMA_OK)
       return false;
 
     m_started = true;
   }
 
   const u8* const in_ptr = in.data.data() + *in_bytes_read;
-  m_stream.next_in = in_ptr;
-  m_stream.avail_in = in.bytes_written - *in_bytes_read;
+  stream.next_in = in_ptr;
+  stream.avail_in = in.bytes_written - *in_bytes_read;
 
   u8* const out_ptr = out->data.data() + out->bytes_written;
-  m_stream.next_out = out_ptr;
-  m_stream.avail_out = out->data.size() - out->bytes_written;
+  stream.next_out = out_ptr;
+  stream.avail_out = out->data.size() - out->bytes_written;
 
-  const lzma_ret result = lzma_code(&m_stream, LZMA_RUN);
+  const lzma_ret result = lzma_code(&stream, LZMA_RUN);
 
-  *in_bytes_read += m_stream.next_in - in_ptr;
-  out->bytes_written += m_stream.next_out - out_ptr;
+  *in_bytes_read += stream.next_in - in_ptr;
+  out->bytes_written += stream.next_out - out_ptr;
 
   m_done = result == LZMA_STREAM_END;
   return result == LZMA_OK || result == LZMA_STREAM_END;
@@ -278,26 +300,33 @@ bool LZMADecompressor::Decompress(const DecompressionBuffer& in, DecompressionBu
 
 #if DIK_HAVE_ZSTD
 
-ZstdDecompressor::ZstdDecompressor()
+struct ZstdDecompressor::Impl
 {
-  m_stream = ZSTD_createDStream();
+  ZSTD_DStream* stream = nullptr;
+};
+
+ZstdDecompressor::ZstdDecompressor() : m_impl(std::make_unique<Impl>())
+{
+  m_impl->stream = ZSTD_createDStream();
 }
 
 ZstdDecompressor::~ZstdDecompressor()
 {
-  ZSTD_freeDStream(m_stream);
+  if (m_impl->stream)
+    ZSTD_freeDStream(m_impl->stream);
 }
 
 bool ZstdDecompressor::Decompress(const DecompressionBuffer& in, DecompressionBuffer* out,
                                   size_t* in_bytes_read)
 {
-  if (!m_stream)
+  ZSTD_DStream* const stream = m_impl->stream;
+  if (!stream)
     return false;
 
   ZSTD_inBuffer in_buffer{in.data.data(), in.bytes_written, *in_bytes_read};
   ZSTD_outBuffer out_buffer{out->data.data(), out->data.size(), out->bytes_written};
 
-  const size_t result = ZSTD_decompressStream(m_stream, &out_buffer, &in_buffer);
+  const size_t result = ZSTD_decompressStream(stream, &out_buffer, &in_buffer);
 
   *in_bytes_read = in_buffer.pos;
   out->bytes_written = out_buffer.pos;
@@ -559,73 +588,95 @@ size_t PurgeCompressor::GetSize() const
 
 #if DIK_HAVE_BZIP2
 
-Bzip2Compressor::Bzip2Compressor(int compression_level) : m_compression_level(compression_level)
+struct Bzip2Compressor::Impl
+{
+  bz_stream stream{};
+};
+
+Bzip2Compressor::Bzip2Compressor(int compression_level)
+    : m_compression_level(compression_level), m_impl(std::make_unique<Impl>())
 {
 }
 
 Bzip2Compressor::~Bzip2Compressor()
 {
-  BZ2_bzCompressEnd(&m_stream);
+  auto& stream = m_impl->stream;
+  if (stream.state != nullptr)
+    BZ2_bzCompressEnd(&stream);
 }
 
 bool Bzip2Compressor::Start(std::optional<u64> size)
 {
-  ASSERT_MSG(DISCIO, m_stream.state == nullptr,
+  static_cast<void>(size);
+  auto& stream = m_impl->stream;
+  ASSERT_MSG(DISCIO, stream.state == nullptr,
              "Called Bzip2Compressor::Start() twice without calling Bzip2Compressor::End()");
 
+  stream = {};
   m_buffer.clear();
-  m_stream.next_out = reinterpret_cast<char*>(m_buffer.data());
+  m_bytes_written = 0;
+  stream.next_out = reinterpret_cast<char*>(m_buffer.data());
 
-  return BZ2_bzCompressInit(&m_stream, m_compression_level, 0, 0) == BZ_OK;
+  return BZ2_bzCompressInit(&stream, m_compression_level, 0, 0) == BZ_OK;
 }
 
 bool Bzip2Compressor::Compress(const u8* data, size_t size)
 {
-  m_stream.next_in = reinterpret_cast<char*>(const_cast<u8*>(data));
-  m_stream.avail_in = static_cast<unsigned int>(size);
+  auto& stream = m_impl->stream;
+
+  stream.next_in = reinterpret_cast<char*>(const_cast<u8*>(data));
+  stream.avail_in = static_cast<unsigned int>(size);
 
   ExpandBuffer(size);
 
-  while (m_stream.avail_in != 0)
+  while (stream.avail_in != 0)
   {
-    if (m_stream.avail_out == 0)
+    if (stream.avail_out == 0)
       ExpandBuffer(0x100);
 
-    if (BZ2_bzCompress(&m_stream, BZ_RUN) != BZ_RUN_OK)
+    if (BZ2_bzCompress(&stream, BZ_RUN) != BZ_RUN_OK)
       return false;
   }
 
+  m_bytes_written = reinterpret_cast<const u8*>(stream.next_out) - m_buffer.data();
   return true;
 }
 
 bool Bzip2Compressor::End()
 {
+  auto& stream = m_impl->stream;
   bool success = true;
 
   while (true)
   {
-    if (m_stream.avail_out == 0)
+    if (stream.avail_out == 0)
       ExpandBuffer(0x100);
 
-    const int result = BZ2_bzCompress(&m_stream, BZ_FINISH);
+    const int result = BZ2_bzCompress(&stream, BZ_FINISH);
     if (result != BZ_FINISH_OK && result != BZ_STREAM_END)
       success = false;
     if (result != BZ_FINISH_OK)
       break;
   }
 
-  if (BZ2_bzCompressEnd(&m_stream) != BZ_OK)
+  m_bytes_written = reinterpret_cast<const u8*>(stream.next_out) - m_buffer.data();
+
+  if (BZ2_bzCompressEnd(&stream) != BZ_OK)
     success = false;
+
+  stream = {};
 
   return success;
 }
 
 void Bzip2Compressor::ExpandBuffer(size_t bytes_to_add)
 {
-  const size_t bytes_written = GetSize();
+  auto& stream = m_impl->stream;
+  const u8* const next_out = reinterpret_cast<const u8*>(stream.next_out);
+  const size_t bytes_written = next_out != nullptr ? next_out - m_buffer.data() : 0;
   m_buffer.resize(m_buffer.size() + bytes_to_add);
-  m_stream.next_out = reinterpret_cast<char*>(m_buffer.data()) + bytes_written;
-  m_stream.avail_out = static_cast<unsigned int>(m_buffer.size() - bytes_written);
+  stream.next_out = reinterpret_cast<char*>(m_buffer.data()) + bytes_written;
+  stream.avail_out = static_cast<unsigned int>(m_buffer.size() - bytes_written);
 }
 
 const u8* Bzip2Compressor::GetData() const
@@ -635,18 +686,28 @@ const u8* Bzip2Compressor::GetData() const
 
 size_t Bzip2Compressor::GetSize() const
 {
-  return static_cast<size_t>(reinterpret_cast<u8*>(m_stream.next_out) - m_buffer.data());
+  return m_bytes_written;
 }
 
 #endif  // DIK_HAVE_BZIP2
 
 #if DIK_HAVE_LZMA
 
+struct LZMACompressor::Impl
+{
+  lzma_stream stream = LZMA_STREAM_INIT;
+  lzma_options_lzma options{};
+  lzma_filter filters[2]{};
+};
+
 LZMACompressor::LZMACompressor(bool lzma2, int compression_level, u8 compressor_data_out[7],
                                u8* compressor_data_size_out)
+    : m_impl(std::make_unique<Impl>())
 {
+  auto& options = m_impl->options;
+
   // lzma_lzma_preset returns false on success for some reason
-  if (lzma_lzma_preset(&m_options, static_cast<uint32_t>(compression_level)))
+  if (lzma_lzma_preset(&options, static_cast<uint32_t>(compression_level)))
   {
     m_initialization_failed = true;
     return;
@@ -659,15 +720,14 @@ LZMACompressor::LZMACompressor(bool lzma2, int compression_level, u8 compressor_
 
     if (compressor_data_out)
     {
-      ASSERT(m_options.lc < 9);
-      ASSERT(m_options.lp < 5);
-      ASSERT(m_options.pb < 5);
-      compressor_data_out[0] =
-          static_cast<u8>((m_options.pb * 5 + m_options.lp) * 9 + m_options.lc);
+      ASSERT(options.lc < 9);
+      ASSERT(options.lp < 5);
+      ASSERT(options.pb < 5);
+      compressor_data_out[0] = static_cast<u8>((options.pb * 5 + options.lp) * 9 + options.lc);
 
       // The dictionary size is stored as a 32-bit little endian unsigned integer
-      static_assert(sizeof(m_options.dict_size) == sizeof(u32));
-      std::memcpy(compressor_data_out + 1, &m_options.dict_size, sizeof(u32));
+      static_assert(sizeof(options.dict_size) == sizeof(u32));
+      std::memcpy(compressor_data_out + 1, &options.dict_size, sizeof(u32));
     }
   }
   else
@@ -678,66 +738,80 @@ LZMACompressor::LZMACompressor(bool lzma2, int compression_level, u8 compressor_
     if (compressor_data_out)
     {
       u8 encoded_dict_size = 0;
-      while (encoded_dict_size < 40 && m_options.dict_size > LZMA2DictionarySize(encoded_dict_size))
+      while (encoded_dict_size < 40 &&
+             options.dict_size > LZMA2DictionarySize(encoded_dict_size))
+      {
         ++encoded_dict_size;
+      }
 
       compressor_data_out[0] = encoded_dict_size;
     }
   }
 
-  m_filters[0].id = lzma2 ? LZMA_FILTER_LZMA2 : LZMA_FILTER_LZMA1;
-  m_filters[0].options = &m_options;
-  m_filters[1].id = LZMA_VLI_UNKNOWN;
-  m_filters[1].options = nullptr;
+  auto& filters = m_impl->filters;
+  filters[0].id = lzma2 ? LZMA_FILTER_LZMA2 : LZMA_FILTER_LZMA1;
+  filters[0].options = &options;
+  filters[1].id = LZMA_VLI_UNKNOWN;
+  filters[1].options = nullptr;
 }
 
 LZMACompressor::~LZMACompressor()
 {
-  lzma_end(&m_stream);
+  lzma_end(&m_impl->stream);
 }
 
 bool LZMACompressor::Start(std::optional<u64> size)
 {
+  static_cast<void>(size);
   if (m_initialization_failed)
     return false;
 
+  auto& stream = m_impl->stream;
+  stream = LZMA_STREAM_INIT;
   m_buffer.clear();
-  m_stream.next_out = m_buffer.data();
+  m_bytes_written = 0;
+  stream.next_out = m_buffer.data();
 
-  return lzma_raw_encoder(&m_stream, m_filters) == LZMA_OK;
+  return lzma_raw_encoder(&stream, m_impl->filters) == LZMA_OK;
 }
 
 bool LZMACompressor::Compress(const u8* data, size_t size)
 {
-  m_stream.next_in = data;
-  m_stream.avail_in = size;
+  auto& stream = m_impl->stream;
+
+  stream.next_in = data;
+  stream.avail_in = size;
 
   ExpandBuffer(size);
 
-  while (m_stream.avail_in != 0)
+  while (stream.avail_in != 0)
   {
-    if (m_stream.avail_out == 0)
+    if (stream.avail_out == 0)
       ExpandBuffer(0x100);
 
-    if (lzma_code(&m_stream, LZMA_RUN) != LZMA_OK)
+    if (lzma_code(&stream, LZMA_RUN) != LZMA_OK)
       return false;
   }
 
+  m_bytes_written = static_cast<size_t>(stream.next_out - m_buffer.data());
   return true;
 }
 
 bool LZMACompressor::End()
 {
+  auto& stream = m_impl->stream;
+
   while (true)
   {
-    if (m_stream.avail_out == 0)
+    if (stream.avail_out == 0)
       ExpandBuffer(0x100);
 
-    switch (lzma_code(&m_stream, LZMA_FINISH))
+    switch (lzma_code(&stream, LZMA_FINISH))
     {
     case LZMA_OK:
       break;
     case LZMA_STREAM_END:
+      m_bytes_written = static_cast<size_t>(stream.next_out - m_buffer.data());
       return true;
     default:
       return false;
@@ -747,10 +821,11 @@ bool LZMACompressor::End()
 
 void LZMACompressor::ExpandBuffer(size_t bytes_to_add)
 {
-  const size_t bytes_written = GetSize();
+  auto& stream = m_impl->stream;
+  const size_t bytes_written = static_cast<size_t>(stream.next_out - m_buffer.data());
   m_buffer.resize(m_buffer.size() + bytes_to_add);
-  m_stream.next_out = m_buffer.data() + bytes_written;
-  m_stream.avail_out = m_buffer.size() - bytes_written;
+  stream.next_out = m_buffer.data() + bytes_written;
+  stream.avail_out = m_buffer.size() - bytes_written;
 }
 
 const u8* LZMACompressor::GetData() const
@@ -760,43 +835,55 @@ const u8* LZMACompressor::GetData() const
 
 size_t LZMACompressor::GetSize() const
 {
-  return static_cast<size_t>(m_stream.next_out - m_buffer.data());
+  return m_bytes_written;
 }
 
 #endif  // DIK_HAVE_LZMA
 
 #if DIK_HAVE_ZSTD
 
-ZstdCompressor::ZstdCompressor(int compression_level)
+struct ZstdCompressor::Impl
 {
-  m_stream = ZSTD_createCStream();
+  ZSTD_CStream* stream = nullptr;
+  ZSTD_outBuffer out_buffer{};
+};
 
-  if (ZSTD_isError(ZSTD_CCtx_setParameter(m_stream, ZSTD_c_compressionLevel, compression_level)) ||
-      ZSTD_isError(ZSTD_CCtx_setParameter(m_stream, ZSTD_c_contentSizeFlag, 0)))
+ZstdCompressor::ZstdCompressor(int compression_level)
+    : m_impl(std::make_unique<Impl>())
+{
+  m_impl->stream = ZSTD_createCStream();
+  if (!m_impl->stream)
+    return;
+
+  if (ZSTD_isError(
+          ZSTD_CCtx_setParameter(m_impl->stream, ZSTD_c_compressionLevel, compression_level)) ||
+      ZSTD_isError(ZSTD_CCtx_setParameter(m_impl->stream, ZSTD_c_contentSizeFlag, 0)))
   {
-    m_stream = nullptr;
+    ZSTD_freeCStream(m_impl->stream);
+    m_impl->stream = nullptr;
   }
 }
 
 ZstdCompressor::~ZstdCompressor()
 {
-  ZSTD_freeCStream(m_stream);
+  if (m_impl->stream)
+    ZSTD_freeCStream(m_impl->stream);
 }
 
 bool ZstdCompressor::Start(std::optional<u64> size)
 {
-  if (!m_stream)
+  if (!m_impl->stream)
     return false;
 
   m_buffer.clear();
-  m_out_buffer = {};
+  m_impl->out_buffer = {};
 
-  if (ZSTD_isError(ZSTD_CCtx_reset(m_stream, ZSTD_reset_session_only)))
+  if (ZSTD_isError(ZSTD_CCtx_reset(m_impl->stream, ZSTD_reset_session_only)))
     return false;
 
   if (size)
   {
-    if (ZSTD_isError(ZSTD_CCtx_setPledgedSrcSize(m_stream, *size)))
+    if (ZSTD_isError(ZSTD_CCtx_setPledgedSrcSize(m_impl->stream, *size)))
       return false;
   }
 
@@ -811,10 +898,10 @@ bool ZstdCompressor::Compress(const u8* data, size_t size)
 
   while (in_buffer.size != in_buffer.pos)
   {
-    if (m_out_buffer.size == m_out_buffer.pos)
+    if (m_impl->out_buffer.size == m_impl->out_buffer.pos)
       ExpandBuffer(0x100);
 
-    if (ZSTD_isError(ZSTD_compressStream(m_stream, &m_out_buffer, &in_buffer)))
+    if (ZSTD_isError(ZSTD_compressStream(m_impl->stream, &m_impl->out_buffer, &in_buffer)))
       return false;
   }
 
@@ -825,10 +912,10 @@ bool ZstdCompressor::End()
 {
   while (true)
   {
-    if (m_out_buffer.size == m_out_buffer.pos)
+    if (m_impl->out_buffer.size == m_impl->out_buffer.pos)
       ExpandBuffer(0x100);
 
-    const size_t result = ZSTD_endStream(m_stream, &m_out_buffer);
+    const size_t result = ZSTD_endStream(m_impl->stream, &m_impl->out_buffer);
     if (ZSTD_isError(result))
       return false;
     if (result == 0)
@@ -838,10 +925,22 @@ bool ZstdCompressor::End()
 
 void ZstdCompressor::ExpandBuffer(size_t bytes_to_add)
 {
+  auto& out_buffer = m_impl->out_buffer;
+  const size_t previous_pos = out_buffer.pos;
   m_buffer.resize(m_buffer.size() + bytes_to_add);
+  out_buffer.dst = m_buffer.data();
+  out_buffer.size = m_buffer.size();
+  out_buffer.pos = previous_pos;
+}
 
-  m_out_buffer.dst = m_buffer.data();
-  m_out_buffer.size = m_buffer.size();
+const u8* ZstdCompressor::GetData() const
+{
+  return m_buffer.data();
+}
+
+size_t ZstdCompressor::GetSize() const
+{
+  return m_impl->out_buffer.pos;
 }
 
 #endif  // DIK_HAVE_ZSTD

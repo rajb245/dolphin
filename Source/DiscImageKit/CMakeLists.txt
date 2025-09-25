@@ -53,7 +53,7 @@ set_target_properties(DiscImageKit PROPERTIES
 )
 
 target_include_directories(DiscImageKit
-  PRIVATE
+  BEFORE PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
@@ -84,23 +84,27 @@ set(_dik_public_libs
   mbedx509
 )
 
+set(_dik_private_libs)
+
 if(DIK_USE_ZLIB)
-  list(APPEND _dik_public_libs ZLIB::ZLIB)
+  list(APPEND _dik_private_libs ZLIB::ZLIB)
 endif()
 
 if(DIK_USE_ZSTD)
-  list(APPEND _dik_public_libs zstd::zstd)
+  list(APPEND _dik_private_libs zstd::zstd)
 endif()
 
 if(DIK_USE_BZIP2)
-  list(APPEND _dik_public_libs BZip2::BZip2)
+  list(APPEND _dik_private_libs BZip2::BZip2)
 endif()
 
 if(DIK_USE_LZMA)
-  list(APPEND _dik_public_libs LibLZMA::LibLZMA)
+  list(APPEND _dik_private_libs LibLZMA::LibLZMA)
 endif()
 
 target_link_libraries(DiscImageKit
   PUBLIC
     ${_dik_public_libs}
+  PRIVATE
+    ${_dik_private_libs}
 )
