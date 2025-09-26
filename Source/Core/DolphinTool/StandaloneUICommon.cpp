@@ -1,5 +1,4 @@
 #include "Common/CommonTypes.h"
-#include "UICommon/UICommon.h"
 
 #include <algorithm>
 #include <array>
@@ -7,6 +6,11 @@
 #include <string>
 
 #include <fmt/format.h>
+
+namespace UICommon
+{
+std::string FormatSize(u64 bytes, int decimals);
+}
 
 namespace UICommon
 {

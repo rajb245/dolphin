@@ -11,8 +11,6 @@
 #include <fmt/format.h>
 #include <fmt/ostream.h>
 
-#include "Common/Assert.h"
-#include "Common/StringUtil.h"
 #include "DiscIO/Volume.h"
 #include "DiscIO/VolumeVerifier.h"
 
@@ -74,7 +72,7 @@ static void PrintFullReport(const DiscIO::VolumeVerifier::Result& result)
       fmt::print(std::cout, "None");
       break;
     default:
-      ASSERT(false);
+      fmt::print(std::cout, "Unknown");
       break;
     }
     fmt::print(std::cout, "\nSummary: {}\n\n", problem.text);

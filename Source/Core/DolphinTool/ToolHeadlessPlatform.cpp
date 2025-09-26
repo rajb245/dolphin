@@ -6,13 +6,54 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
-#include "Common/Flag.h"
-#include "Common/WindowSystemInfo.h"
+#ifdef DIK_STANDALONE
+#include <cstdint>
+#endif
 
-#include "Core/Core.h"
-#include "Core/DolphinAnalytics.h"
+#ifndef DIK_STANDALONE
 #include "Core/Host.h"
+#else
+enum class HostMessageID : int;
+
+class GBAHostInterface
+{
+public:
+  virtual ~GBAHostInterface() = default;
+};
+
+namespace HW::GBA
+{
+class Core;
+}  // namespace HW::GBA
+
+std::vector<std::string> Host_GetPreferredLocales();
+void Host_PPCSymbolsChanged();
+void Host_PPCBreakpointsChanged();
+bool Host_UIBlocksControllerState();
+void Host_Message(HostMessageID id);
+void Host_UpdateTitle(const std::string& title);
+void Host_UpdateDiscordClientID(const std::string& client_id);
+bool Host_UpdateDiscordPresenceRaw(const std::string& details, const std::string& state,
+                                   const std::string& large_image_key,
+                                   const std::string& large_image_text,
+                                   const std::string& small_image_key,
+                                   const std::string& small_image_text,
+                                   int64_t start_timestamp, int64_t end_timestamp, int party_size,
+                                   int party_max);
+void Host_UpdateDisasmDialog();
+void Host_JitCacheInvalidation();
+void Host_JitProfileDataWiped();
+void Host_RequestRenderWindowSize(int width, int height);
+bool Host_RendererHasFocus();
+bool Host_RendererHasFullFocus();
+bool Host_RendererIsFullscreen();
+bool Host_TASInputHasFocus();
+void Host_YieldToUI();
+void Host_TitleChanged();
+std::unique_ptr<GBAHostInterface> Host_CreateGBAHost(std::weak_ptr<HW::GBA::Core> core);
+#endif
 
 // Begin stubs needed to satisfy Core dependencies
 

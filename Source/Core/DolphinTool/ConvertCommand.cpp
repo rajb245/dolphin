@@ -14,7 +14,6 @@
 #include <fmt/format.h>
 #include <fmt/ostream.h>
 
-#include "Common/CommonTypes.h"
 #include "DiscIO/Blob.h"
 #include "DiscIO/DiscUtils.h"
 #include "DiscIO/ScrubbedBlob.h"
