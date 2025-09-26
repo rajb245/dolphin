@@ -58,6 +58,31 @@
 
 namespace DiscIO
 {
+struct MD5State
+{
+  MD5State()
+  {
+    mbedtls_md5_init(&context);
+    mbedtls_md5_starts_ret(&context);
+  }
+
+  MD5State(const MD5State&) = delete;
+  MD5State& operator=(const MD5State&) = delete;
+
+  ~MD5State()
+  {
+    mbedtls_md5_free(&context);
+  }
+
+  void Reset()
+  {
+    mbedtls_md5_free(&context);
+    mbedtls_md5_init(&context);
+    mbedtls_md5_starts_ret(&context);
+  }
+
+  mbedtls_md5_context context{};
+};
 RedumpVerifier::DownloadState RedumpVerifier::m_gc_download_state;
 RedumpVerifier::DownloadState RedumpVerifier::m_wii_download_state;
 
@@ -1080,8 +1105,14 @@ void VolumeVerifier::SetUpHashing()
 
   if (m_hashes_to_calculate.md5)
   {
-    mbedtls_md5_init(&m_md5_context);
-    mbedtls_md5_starts_ret(&m_md5_context);
+    if (!m_md5_state)
+      m_md5_state = std::make_unique<MD5State>();
+    else
+      m_md5_state->Reset();
+  }
+  else
+  {
+    m_md5_state.reset();
   }
 
   if (m_hashes_to_calculate.sha1)
@@ -1224,7 +1255,8 @@ void VolumeVerifier::Process()
     if (m_hashes_to_calculate.md5)
     {
       m_md5_future = std::async(std::launch::async, [this, byte_increment] {
-        mbedtls_md5_update_ret(&m_md5_context, m_data.data(), byte_increment);
+        if (m_md5_state)
+          mbedtls_md5_update_ret(&m_md5_state->context, m_data.data(), byte_increment);
       });
     }
 
@@ -1317,7 +1349,8 @@ void VolumeVerifier::Finish()
     if (m_hashes_to_calculate.md5)
     {
       m_result.hashes.md5 = std::vector<u8>(16);
-      mbedtls_md5_finish_ret(&m_md5_context, m_result.hashes.md5.data());
+      if (m_md5_state)
+        mbedtls_md5_finish_ret(&m_md5_state->context, m_result.hashes.md5.data());
     }
 
     if (m_hashes_to_calculate.sha1)

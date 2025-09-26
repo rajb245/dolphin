@@ -10,8 +10,6 @@
 #include <string>
 #include <vector>
 
-#include <mbedtls/md5.h>
-
 #include "Common/CommonTypes.h"
 #include "Common/Crypto/SHA1.h"
 #include "Core/IOS/ES/Formats.h"
@@ -40,6 +38,8 @@ struct Hashes
   T md5;
   T sha1;
 };
+
+struct MD5State;
 
 class RedumpVerifier final
 {
@@ -176,7 +176,7 @@ private:
   Hashes<bool> m_hashes_to_calculate{};
   bool m_calculating_any_hash = false;
   u32 m_crc32_context = 0;
-  mbedtls_md5_context m_md5_context{};
+  std::unique_ptr<MD5State> m_md5_state;
   std::unique_ptr<Common::SHA1::Context> m_sha1_context;
 
   u64 m_excess_bytes = 0;
