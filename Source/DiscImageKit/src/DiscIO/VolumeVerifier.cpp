@@ -23,7 +23,7 @@
 #include "Common/Assert.h"
 #include "Common/CPUDetect.h"
 #include "Common/CommonPaths.h"
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/Contains.h"
 #include "Common/Crypto/SHA1.h"
 #include "Common/FileUtil.h"

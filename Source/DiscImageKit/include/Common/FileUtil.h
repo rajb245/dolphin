@@ -12,7 +12,7 @@
 
 #include <sys/stat.h>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 
 #ifdef _WIN32
 #include "Common/StringUtil.h"

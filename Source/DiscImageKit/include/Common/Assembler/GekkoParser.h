@@ -9,7 +9,7 @@
 
 #include "Common/Assembler/AssemblerShared.h"
 #include "Common/Assembler/GekkoLexer.h"
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 
 namespace Common::GekkoAssembler::detail
 {

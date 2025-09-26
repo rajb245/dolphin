@@ -10,7 +10,7 @@
 
 #include <enet/enet.h>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/ENet.h"
 #include "Common/Thread.h"
 #include "Common/TraversalProto.h"

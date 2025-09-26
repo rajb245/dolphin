@@ -6,7 +6,7 @@
 #include <optional>
 #include <string>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 
 #ifndef _WIN32
 

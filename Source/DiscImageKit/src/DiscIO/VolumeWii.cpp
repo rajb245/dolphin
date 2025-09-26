@@ -18,7 +18,7 @@
 
 #include "Common/Align.h"
 #include "Common/Assert.h"
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/Crypto/AES.h"
 #include "Common/Crypto/SHA1.h"
 #include "Common/Logging/Log.h"

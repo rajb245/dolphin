@@ -9,7 +9,7 @@
 #include <string>
 #include <string_view>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 
 namespace Common
 {

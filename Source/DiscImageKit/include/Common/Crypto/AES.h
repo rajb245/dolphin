@@ -5,7 +5,7 @@
 
 #include <memory>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 
 // Dolphin only uses/implements AES-128-CBC.
 

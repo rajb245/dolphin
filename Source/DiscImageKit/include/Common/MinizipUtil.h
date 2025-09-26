@@ -9,7 +9,7 @@
 #include <mz_zip.h>
 #include <mz_zip_rw.h>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/ScopeGuard.h"
 
 namespace Common

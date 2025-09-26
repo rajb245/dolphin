@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/Crypto/AES.h"
 #include "Common/Crypto/ec.h"
 

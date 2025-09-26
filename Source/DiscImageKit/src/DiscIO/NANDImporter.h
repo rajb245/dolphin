@@ -11,7 +11,7 @@
 
 #include <fmt/format.h>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/Crypto/AES.h"
 #include "Common/Swap.h"
 

@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #ifndef DIK_STANDALONE
 #include "Core/IOS/Device.h"
 #endif

@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/Crypto/SHA1.h"
 #include "DiscIO/DiscUtils.h"
 #include "DiscIO/Enums.h"

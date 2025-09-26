@@ -3,7 +3,7 @@
 #include <Windows.h>
 #include <string>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 
 namespace WindowsRegistry
 {

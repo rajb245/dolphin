@@ -7,7 +7,7 @@
 #include <memory>
 #include <type_traits>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 
 namespace Common::Random
 {

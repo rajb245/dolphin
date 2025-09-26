@@ -10,7 +10,7 @@
 #endif
 
 // Don't include Common.h here as it will break LogManager
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 
 // This may not be defined outside _WIN32
 #ifndef _WIN32

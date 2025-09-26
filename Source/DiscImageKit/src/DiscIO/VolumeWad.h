@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Core/IOS/ES/Formats.h"
 #include "DiscIO/Volume.h"
 

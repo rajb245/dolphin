@@ -7,7 +7,7 @@
 #include <limits>
 #include <memory>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "DiscIO/VolumeWii.h"
 
 namespace DiscIO

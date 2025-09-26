@@ -5,7 +5,7 @@
 #include <array>
 #include <cstddef>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 
 namespace DiscIO
 {

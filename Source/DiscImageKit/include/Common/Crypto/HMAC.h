@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 
 #include <span>
 

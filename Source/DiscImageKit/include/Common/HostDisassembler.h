@@ -7,7 +7,7 @@
 #include <iosfwd>
 #include <memory>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 
 class HostDisassembler
 {

@@ -12,7 +12,7 @@
 
 #include "Common/Align.h"
 #include "Common/Assert.h"
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/Logging/Log.h"
 
 #include "DiscIO/DiscUtils.h"

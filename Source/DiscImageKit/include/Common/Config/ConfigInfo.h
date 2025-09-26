@@ -9,7 +9,7 @@
 #include <type_traits>
 #include <utility>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/Config/Enums.h"
 
 namespace Config

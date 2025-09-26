@@ -7,7 +7,7 @@
 #include <memory>
 #include <string>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/IOFile.h"
 #include "DiscIO/Blob.h"
 

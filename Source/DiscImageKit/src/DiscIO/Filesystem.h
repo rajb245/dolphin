@@ -10,7 +10,7 @@
 #include <string_view>
 #include <vector>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "DiscIO/Volume.h"
 
 namespace DiscIO

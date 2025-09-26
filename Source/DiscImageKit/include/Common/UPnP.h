@@ -5,7 +5,7 @@
 
 #ifdef USE_UPNP
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 
 namespace Common::UPnP
 {

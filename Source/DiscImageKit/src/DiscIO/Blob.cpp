@@ -10,7 +10,7 @@
 #include <string>
 #include <utility>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/IOFile.h"
 #include "Common/MsgHandler.h"
 

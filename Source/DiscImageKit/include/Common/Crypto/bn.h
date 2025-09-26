@@ -5,7 +5,7 @@
 
 #include <cstddef>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 
 // bignum arithmetic
 

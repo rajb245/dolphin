@@ -24,7 +24,7 @@
 #endif
 
 #include "Common/Assert.h"
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/MathUtil.h"
 #include "Common/Swap.h"
 #include "DiscIO/LaggedFibonacciGenerator.h"

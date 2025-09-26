@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/Lazy.h"
 #include "DiscIO/Filesystem.h"
 #include "DiscIO/Volume.h"

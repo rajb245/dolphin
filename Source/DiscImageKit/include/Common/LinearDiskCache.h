@@ -9,7 +9,7 @@
 #include <string>
 #include <type_traits>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/IOFile.h"
 #include "Common/Version.h"
 

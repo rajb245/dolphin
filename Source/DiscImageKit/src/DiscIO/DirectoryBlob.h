@@ -14,7 +14,7 @@
 #include <variant>
 #include <vector>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/FileUtil.h"
 #include "DiscIO/Blob.h"
 #include "DiscIO/Volume.h"

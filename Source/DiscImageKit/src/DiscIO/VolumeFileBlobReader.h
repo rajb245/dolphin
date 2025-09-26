@@ -6,7 +6,7 @@
 #include <memory>
 #include <string_view>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "DiscIO/Blob.h"
 
 namespace DiscIO

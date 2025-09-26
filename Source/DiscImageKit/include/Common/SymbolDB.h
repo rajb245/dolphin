@@ -15,7 +15,7 @@
 #include <vector>
 
 #include "Common/Assert.h"
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 
 namespace Core
 {

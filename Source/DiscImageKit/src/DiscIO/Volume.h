@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/Crypto/SHA1.h"
 #include "Common/StringUtil.h"
 #include "Common/Swap.h"

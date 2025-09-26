@@ -5,7 +5,7 @@
 
 #include <string>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 
 #include "Common/GL/GLExtensions/AMD_pinned_memory.h"
 #include "Common/GL/GLExtensions/ARB_ES2_compatibility.h"

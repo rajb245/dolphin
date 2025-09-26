@@ -11,7 +11,7 @@
 #include <mach/mach.h>
 #endif
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/DynamicLibrary.h"
 
 namespace Common

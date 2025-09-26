@@ -10,7 +10,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 
 struct sockaddr_in;
 

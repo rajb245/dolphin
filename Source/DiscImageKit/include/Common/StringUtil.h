@@ -18,7 +18,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/EnumUtils.h"
 #include "Common/TypeUtils.h"
 

@@ -11,7 +11,7 @@
 #include <type_traits>
 #include <utility>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 
 namespace MathUtil
 {

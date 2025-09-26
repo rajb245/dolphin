@@ -7,7 +7,7 @@
 
 #include <SFML/Network/Packet.hpp>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/Swap.h"
 
 sf::Packet& operator>>(sf::Packet& packet, Common::BigEndianValue<u16>& data);

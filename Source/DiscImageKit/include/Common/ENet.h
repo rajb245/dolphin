@@ -8,7 +8,7 @@
 #include <SFML/Network/Packet.hpp>
 #include <enet/enet.h>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 
 namespace Common::ENet
 {

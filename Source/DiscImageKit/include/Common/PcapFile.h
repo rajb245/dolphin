@@ -15,7 +15,7 @@
 #include <cstddef>
 #include <memory>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/IOFile.h"
 
 namespace Common

@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/Event.h"
 #include "Common/Flag.h"
 #include "Common/HttpRequest.h"

@@ -15,7 +15,7 @@
 #include <vector>
 
 #include "Common/CommonFuncs.h"
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/IOFile.h"
 #include "Common/Logging/Log.h"
 #include "Common/MsgHandler.h"

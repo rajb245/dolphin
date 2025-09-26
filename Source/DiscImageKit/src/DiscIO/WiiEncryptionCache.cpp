@@ -9,7 +9,7 @@
 #include <memory>
 
 #include "Common/Align.h"
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "DiscIO/Blob.h"
 #include "DiscIO/VolumeWii.h"
 

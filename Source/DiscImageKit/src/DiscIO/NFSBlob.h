@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/Crypto/AES.h"
 #include "Common/IOFile.h"
 #include "DiscIO/Blob.h"

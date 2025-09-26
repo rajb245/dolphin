@@ -28,7 +28,7 @@
 #include <fmt/format.h>
 
 #include "Common/Assert.h"
-#include "Common/CommonTypes.h"
+#include "discimagekit/types.h"
 #include "Common/EnumMap.h"
 #include "Common/Flag.h"
 #include "Common/Inline.h"
