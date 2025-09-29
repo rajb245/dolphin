@@ -6,11 +6,12 @@
 #include <map>
 #include <string>
 
-#include "Common/Assert.h"
-#include "Common/Common.h"
+#include "discimagekit/assert.h"
+#include "discimagekit/common.h"
+#include "discimagekit/string_utils.h"
 #include "discimagekit/types.h"
-#include "Common/Logging/Log.h"
-#include "Common/MsgHandler.h"
+#include "discimagekit/logging.h"
+#include "discimagekit/msg_handler.h"
 
 namespace DiscIO
 {
@@ -64,7 +65,7 @@ std::string GetName(Country country, bool translate)
     break;
   }
 
-  return translate ? Common::GetStringT(name.c_str()) : name;
+  return translate ? dik::string_utils::translate(name.c_str()) : name;
 }
 
 std::string GetName(Language language, bool translate)
@@ -108,7 +109,7 @@ std::string GetName(Language language, bool translate)
     break;
   }
 
-  return translate ? Common::GetStringT(name.c_str()) : name;
+  return translate ? dik::string_utils::translate(name.c_str()) : name;
 }
 
 std::string GetName(Region region, bool translate)
@@ -134,7 +135,7 @@ std::string GetName(Region region, bool translate)
     break;
   }
 
-  return translate ? Common::GetStringT(name.c_str()) : name;
+  return translate ? dik::string_utils::translate(name.c_str()) : name;
 }
 
 bool IsDisc(Platform volume_type)

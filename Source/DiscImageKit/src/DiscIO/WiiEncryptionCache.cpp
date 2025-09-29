@@ -8,7 +8,7 @@
 #include <limits>
 #include <memory>
 
-#include "Common/Align.h"
+#include "discimagekit/byte_utils.h"
 #include "discimagekit/types.h"
 #include "DiscIO/Blob.h"
 #include "DiscIO/VolumeWii.h"
@@ -72,7 +72,7 @@ bool WiiEncryptionCache::EncryptGroups(u64 offset, u64 size, u8* out_ptr, u64 pa
   while (size > 0)
   {
     const std::array<u8, VolumeWii::GROUP_TOTAL_SIZE>* group =
-        EncryptGroup(Common::AlignDown(offset, VolumeWii::GROUP_TOTAL_SIZE), partition_data_offset,
+        EncryptGroup(dik::byte_utils::align_down(offset, VolumeWii::GROUP_TOTAL_SIZE), partition_data_offset,
                      partition_data_decrypted_size, key, hash_exception_callback);
 
     if (!group)

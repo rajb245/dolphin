@@ -8,12 +8,12 @@
 #include <string>
 #include <vector>
 
-#include "Common/ColorUtil.h"
+#include "discimagekit/color_utils.h"
+#include "discimagekit/string_utils.h"
 #include "discimagekit/types.h"
-#include "Common/FileUtil.h"
-#include "Common/IOFile.h"
-#include "Common/NandPaths.h"
-#include "Common/StringUtil.h"
+#include "discimagekit/fs_utils.h"
+#include "discimagekit/io_file.h"
+#include "discimagekit/nand_paths.h"
 
 namespace DiscIO
 {
@@ -49,12 +49,12 @@ WiiSaveBanner::WiiSaveBanner(u64 title_id)
 
 std::string WiiSaveBanner::GetName() const
 {
-  return UTF16BEToUTF8(m_header.name, std::size(m_header.name));
+  return dik::string_utils::utf16be_to_utf8(m_header.name, std::size(m_header.name));
 }
 
 std::string WiiSaveBanner::GetDescription() const
 {
-  return UTF16BEToUTF8(m_header.description, std::size(m_header.description));
+  return dik::string_utils::utf16be_to_utf8(m_header.description, std::size(m_header.description));
 }
 
 std::vector<u32> WiiSaveBanner::GetBanner(u32* width, u32* height) const
@@ -71,7 +71,7 @@ std::vector<u32> WiiSaveBanner::GetBanner(u32* width, u32* height) const
     return std::vector<u32>();
 
   std::vector<u32> image_buffer(BANNER_WIDTH * BANNER_HEIGHT);
-  Common::Decode5A3Image(image_buffer.data(), banner_data.data(), BANNER_WIDTH, BANNER_HEIGHT);
+  dik::color::decode_5a3(image_buffer.data(), banner_data.data(), BANNER_WIDTH, BANNER_HEIGHT);
 
   *width = BANNER_WIDTH;
   *height = BANNER_HEIGHT;

@@ -5,8 +5,7 @@
 #include <mutex>
 #include <string>
 
-#include "Common/CommonPaths.h"
-#include "Common/FileUtil.h"
+#include "discimagekit/fs_utils.h"
 #include "discimagekit/log.h"
 
 namespace dik
@@ -34,30 +33,27 @@ std::string DetermineDefaultDirectory()
   return base.generic_string();
 }
 
-void EnsureDirectory(const std::string& path)
-{
-  File::CreateFullPath(path + DIR_SEP);
-}
-
 void InitializePaths(const std::string& base)
 {
-  File::SetUserPath(D_USER_IDX, base);
-  EnsureDirectory(File::GetUserPath(D_USER_IDX));
+  File::SetUserPath(File::D_USER_IDX, base);
+  File::CreateDirs(File::GetUserPath(File::D_USER_IDX));
 
-  const std::string cache_root = base + DIR_SEP + CACHE_DIR;
-  File::SetUserPath(D_CACHE_IDX, cache_root);
-  EnsureDirectory(File::GetUserPath(D_CACHE_IDX));
+  const std::string cache_root = base + std::string(1, dik::fs::dir_separator) +
+                                 std::string(dik::fs::cache_directory);
+  File::SetUserPath(File::D_CACHE_IDX, cache_root);
+  File::CreateDirs(File::GetUserPath(File::D_CACHE_IDX));
 
-  const std::string redump_cache = cache_root + DIR_SEP + REDUMPCACHE_DIR;
-  File::SetUserPath(D_REDUMPCACHE_IDX, redump_cache);
-  EnsureDirectory(File::GetUserPath(D_REDUMPCACHE_IDX));
+  const std::string redump_cache = cache_root + std::string(1, dik::fs::dir_separator) +
+                                   std::string(dik::fs::redump_cache_directory);
+  File::SetUserPath(File::D_REDUMPCACHE_IDX, redump_cache);
+  File::CreateDirs(File::GetUserPath(File::D_REDUMPCACHE_IDX));
 }
 
 void InitializeUserDirectoryOnce(const std::string& custom_path)
 {
   std::string base = custom_path.empty() ? DetermineDefaultDirectory() : custom_path;
   InitializePaths(base);
-  g_user_directory = File::GetUserPath(D_USER_IDX);
+  g_user_directory = File::GetUserPath(File::D_USER_IDX);
   log_info("DiscImageKit user directory: %s", g_user_directory.c_str());
 }
 }  // namespace

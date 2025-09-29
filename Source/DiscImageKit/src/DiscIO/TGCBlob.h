@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "discimagekit/types.h"
-#include "Common/IOFile.h"
+#include "discimagekit/io_file.h"
 #include "DiscIO/Blob.h"
 
 namespace DiscIO

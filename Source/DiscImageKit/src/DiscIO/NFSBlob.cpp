@@ -14,13 +14,12 @@
 
 #include <fmt/format.h>
 
-#include "Common/Align.h"
+#include "discimagekit/byte_utils.h"
+#include "discimagekit/string_utils.h"
 #include "discimagekit/types.h"
-#include "Common/Crypto/AES.h"
-#include "Common/IOFile.h"
-#include "Common/Logging/Log.h"
-#include "Common/StringUtil.h"
-#include "Common/Swap.h"
+#include "discimagekit/crypto/aes.h"
+#include "discimagekit/io_file.h"
+#include "discimagekit/logging.h"
 
 namespace DiscIO
 {
@@ -30,7 +29,8 @@ bool NFSFileReader::ReadKey(const std::string& path, const std::string& director
       std::string_view(directory).substr(0, directory.size() - 1);
 
   std::string parent, parent_name, parent_extension;
-  SplitPath(directory_without_trailing_slash, &parent, &parent_name, &parent_extension);
+  dik::string_utils::split_path(directory_without_trailing_slash, &parent, &parent_name,
+                                &parent_extension);
 
   if (parent_name + parent_extension != "content")
   {
@@ -52,7 +52,7 @@ bool NFSFileReader::ReadKey(const std::string& path, const std::string& director
 std::vector<NFSLBARange> NFSFileReader::GetLBARanges(const NFSHeader& header)
 {
   const size_t lba_range_count =
-      std::min<size_t>(Common::swap32(header.lba_range_count), header.lba_ranges.size());
+      std::min<size_t>(dik::byte_utils::swap32(header.lba_range_count), header.lba_ranges.size());
 
   std::vector<NFSLBARange> lba_ranges;
   lba_ranges.reserve(lba_range_count);
@@ -60,8 +60,8 @@ std::vector<NFSLBARange> NFSFileReader::GetLBARanges(const NFSHeader& header)
   for (size_t i = 0; i < lba_range_count; ++i)
   {
     const NFSLBARange& unswapped_lba_range = header.lba_ranges[i];
-    lba_ranges.push_back(NFSLBARange{Common::swap32(unswapped_lba_range.start_block),
-                                     Common::swap32(unswapped_lba_range.num_blocks)});
+    lba_ranges.push_back(NFSLBARange{dik::byte_utils::swap32(unswapped_lba_range.start_block),
+                                     dik::byte_utils::swap32(unswapped_lba_range.num_blocks)});
   }
 
   return lba_ranges;
@@ -71,7 +71,7 @@ std::vector<File::IOFile> NFSFileReader::OpenFiles(const std::string& directory,
                                                    File::IOFile first_file, u64 expected_raw_size,
                                                    u64* raw_size_out)
 {
-  const u64 file_count = Common::AlignUp(expected_raw_size, MAX_FILE_SIZE) / MAX_FILE_SIZE;
+  const u64 file_count = dik::byte_utils::align_up(expected_raw_size, MAX_FILE_SIZE) / MAX_FILE_SIZE;
 
   std::vector<File::IOFile> files;
   files.reserve(file_count);
@@ -127,7 +127,7 @@ std::unique_ptr<NFSFileReader> NFSFileReader::Create(File::IOFile first_file,
                                                      const std::string& path)
 {
   std::string directory, filename, extension;
-  SplitPath(path, &directory, &filename, &extension);
+  dik::string_utils::split_path(path, &directory, &filename, &extension);
   if (filename + extension != "hif_000000.nfs")
     return nullptr;
 
@@ -254,7 +254,7 @@ bool NFSFileReader::ReadEncryptedBlock(u64 physical_block_index)
 void NFSFileReader::DecryptBlock(u64 logical_block_index)
 {
   std::array<u8, 16> iv{};
-  const u64 swapped_block_index = Common::swap64(logical_block_index);
+  const u64 swapped_block_index = dik::byte_utils::swap64(logical_block_index);
   std::memcpy(iv.data() + iv.size() - sizeof(swapped_block_index), &swapped_block_index,
               sizeof(swapped_block_index));
 

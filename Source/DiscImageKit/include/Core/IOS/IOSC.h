@@ -11,10 +11,12 @@
 #include <vector>
 
 #include "discimagekit/types.h"
-#include "Common/Crypto/AES.h"
-#include "Common/Crypto/ec.h"
+#include "discimagekit/crypto/aes.h"
+#include "discimagekit/crypto/ec.h"
 
+#ifndef DIK_STANDALONE
 class PointerWrap;
+#endif
 
 namespace IOS
 {
@@ -225,7 +227,9 @@ public:
   CertECC GetDeviceCertificate() const;
   void Sign(u8* sig_out, u8* ap_cert_out, u64 title_id, const u8* data, u32 data_size) const;
 
+#ifndef DIK_STANDALONE
   void DoState(PointerWrap& p);
+#endif
 
 private:
   struct KeyEntry
@@ -234,7 +238,9 @@ private:
     KeyEntry(ObjectType type_, ObjectSubType subtype_, std::vector<u8>&& data_, u32 owner_mask_);
     KeyEntry(ObjectType type_, ObjectSubType subtype_, std::vector<u8>&& data_, u32 misc_data_,
              u32 owner_mask_);
+#ifndef DIK_STANDALONE
     void DoState(PointerWrap& p);
+#endif
 
     bool in_use = false;
     ObjectType type{};

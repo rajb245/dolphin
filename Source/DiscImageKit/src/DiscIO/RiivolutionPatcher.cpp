@@ -11,9 +11,9 @@
 
 #include <fmt/format.h>
 
-#include "Common/FileUtil.h"
-#include "Common/IOFile.h"
-#include "Common/StringUtil.h"
+#include "discimagekit/fs_utils.h"
+#include "discimagekit/io_file.h"
+#include "discimagekit/string_utils.h"
 #ifndef DIK_STANDALONE
 #include "Core/AchievementManager.h"
 #include "Core/Core.h"
@@ -46,7 +46,7 @@ FileDataLoaderHostFS::FileDataLoaderHostFS(std::string sd_root, const std::strin
   // The following initialization should properly replicate this behavior.
 
   // First set m_patch_root to the folder the parsed XML file is in.
-  SplitPath(xml_path, &m_patch_root, nullptr, nullptr);
+  dik::string_utils::split_path(xml_path, &m_patch_root, nullptr, nullptr);
 
   // Then try to resolve the given patch_root as if it was a file path, and on success replace the
   // m_patch_root with it.
@@ -136,7 +136,7 @@ FileDataLoaderHostFS::MakeAbsoluteFromRelative(std::string_view external_relativ
         bool found = false;
         for (auto& f : possible_files.children)
         {
-          if (Common::CaseInsensitiveEquals(element, f.virtualName))
+          if (dik::string_utils::case_insensitive_equals(element, f.virtualName))
           {
             result += f.virtualName;
             found = true;
@@ -368,7 +368,7 @@ static FSTBuilderNode* FindFileNodeInFST(std::string_view path, std::vector<FSTB
   const bool is_file = path_separator == std::string_view::npos;
   const std::string_view name = is_file ? path : path.substr(0, path_separator);
   const auto it = std::ranges::find_if(*fst, [&](const FSTBuilderNode& node) {
-    return Common::CaseInsensitiveEquals(node.m_filename, name);
+    return dik::string_utils::case_insensitive_equals(node.m_filename, name);
   });
 
   if (it == fst->end())
@@ -410,7 +410,7 @@ static FSTBuilderNode* FindFilenameNodeInFST(std::string_view filename,
       if (result)
         return result;
     }
-    else if (Common::CaseInsensitiveEquals(node.m_filename, filename))
+    else if (dik::string_utils::case_insensitive_equals(node.m_filename, filename))
     {
       return &node;
     }
@@ -430,7 +430,7 @@ static void ApplyFilePatchToFST(const Patch& patch, const File& file,
     if (node)
       ApplyPatchToFile(patch, file, node);
   }
-  else if (dol_node && Common::CaseInsensitiveEquals(file.m_disc, "main.dol"))
+  else if (dol_node && dik::string_utils::case_insensitive_equals(file.m_disc, "main.dol"))
   {
     // Special case: If the filename is "main.dol", we want to patch the main executable.
     ApplyPatchToFile(patch, file, dol_node);

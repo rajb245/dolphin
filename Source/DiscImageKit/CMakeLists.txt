@@ -1,16 +1,14 @@
 add_library(DiscImageKit STATIC
   src/fs.cpp
   src/Core/IOS/ES/Formats.cpp
-  src/Common/CPUDetect.cpp
-  src/Common/Crypto.cpp
-  src/Common/ColorUtil.cpp
-  src/Common/FileUtil.cpp
-  src/Common/Hash.cpp
-  src/Common/IOFile.cpp
-  src/Common/Log.cpp
-  src/Common/MsgHandler.cpp
-  src/Common/NandPaths.cpp
-  src/Common/StringUtil.cpp
+  src/common/crypto.cpp
+  src/color_utils.cpp
+  src/hash_utils.cpp
+  src/io_file.cpp
+  src/common/msg_handler.cpp
+  src/common/nand_paths.cpp
+  src/fs_utils.cpp
+  src/string_utils.cpp
   src/DiscIO/Blob.cpp
   src/DiscIO/CISOBlob.cpp
   src/DiscIO/CompressedBlob.cpp

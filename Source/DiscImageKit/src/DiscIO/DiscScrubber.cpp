@@ -10,10 +10,10 @@
 #include <string>
 #include <vector>
 
-#include "Common/Align.h"
-#include "Common/Assert.h"
+#include "discimagekit/assert.h"
+#include "discimagekit/byte_utils.h"
 #include "discimagekit/types.h"
-#include "Common/Logging/Log.h"
+#include "discimagekit/logging.h"
 
 #include "DiscIO/DiscUtils.h"
 #include "DiscIO/Filesystem.h"
@@ -52,7 +52,7 @@ bool DiscScrubber::CanBlockBeScrubbed(u64 offset) const
 
 void DiscScrubber::MarkAsUsed(u64 offset, u64 size)
 {
-  u64 current_offset = Common::AlignDown(offset, CLUSTER_SIZE);
+  u64 current_offset = dik::byte_utils::align_down(offset, CLUSTER_SIZE);
   const u64 end_offset = offset + size;
 
   DEBUG_LOG_FMT(DISCIO, "Marking {:#018x} - {:#018x} as used", offset, end_offset);
@@ -95,7 +95,7 @@ u64 DiscScrubber::ToClusterOffset(u64 offset) const
   if (m_has_wii_hashes)
     return offset / 0x7c00 * CLUSTER_SIZE;
   else
-    return Common::AlignDown(offset, CLUSTER_SIZE);
+    return dik::byte_utils::align_down(offset, CLUSTER_SIZE);
 }
 
 // Helper functions for reading the BE volume

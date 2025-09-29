@@ -9,9 +9,10 @@
 #include <utility>
 #include <vector>
 
-#include "Common/Assert.h"
-#include "Common/FileUtil.h"
-#include "Common/MsgHandler.h"
+#include "discimagekit/assert.h"
+#include "discimagekit/fs_utils.h"
+#include "discimagekit/msg_handler.h"
+#include "discimagekit/string_utils.h"
 
 namespace DiscIO
 {
@@ -84,7 +85,7 @@ bool ConvertToPlain(BlobReader* infile, const std::string& infile_path,
     if (i % progress_monitor == 0)
     {
       const bool was_cancelled =
-          !callback(Common::GetStringT("Unpacking"), (float)i / (float)num_buffers);
+          !callback(dik::string_utils::translate("Unpacking"), (float)i / (float)num_buffers);
       if (was_cancelled)
       {
         success = false;

@@ -13,8 +13,8 @@
 #include <vector>
 
 #include "discimagekit/types.h"
-#include "Common/Crypto/SHA1.h"
-#include "Common/StringUtil.h"
+#include "discimagekit/crypto/sha1.h"
+#include "discimagekit/string_utils.h"
 
 #include "Core/IOS/ES/Formats.h"
 #include "DiscIO/Blob.h"
@@ -76,7 +76,8 @@ std::map<Language, std::string> Volume::ReadWiiNames(const std::vector<char16_t>
     const size_t name_start = NAME_CHARS_LENGTH * i;
     if (name_start + NAME_CHARS_LENGTH <= data.size())
     {
-      const std::string name = UTF16BEToUTF8(data.data() + name_start, NAME_CHARS_LENGTH);
+      const std::string name =
+          dik::string_utils::utf16be_to_utf8(data.data() + name_start, NAME_CHARS_LENGTH);
       if (!name.empty())
         names[static_cast<Language>(i)] = name;
     }

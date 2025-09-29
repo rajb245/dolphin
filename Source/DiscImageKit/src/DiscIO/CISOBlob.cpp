@@ -9,7 +9,7 @@
 #include <utility>
 
 #include "discimagekit/types.h"
-#include "Common/IOFile.h"
+#include "discimagekit/io_file.h"
 
 namespace DiscIO
 {

@@ -11,12 +11,11 @@
 #include <utility>
 #include <vector>
 
-#include "Common/Align.h"
-#include "Common/Assert.h"
+#include "discimagekit/assert.h"
+#include "discimagekit/byte_utils.h"
 #include "discimagekit/types.h"
-#include "Common/IOFile.h"
-#include "Common/Logging/Log.h"
-#include "Common/Swap.h"
+#include "discimagekit/io_file.h"
+#include "discimagekit/logging.h"
 
 namespace DiscIO
 {
@@ -41,7 +40,7 @@ WbfsFileReader::WbfsFileReader(File::IOFile file, const std::string& path)
                        File::SeekOrigin::Begin);
   m_files[0].file.ReadBytes(m_wlba_table.data(), m_blocks_per_disc * sizeof(u16));
   for (size_t i = 0; i < m_blocks_per_disc; i++)
-    m_wlba_table[i] = Common::swap16(m_wlba_table[i]);
+    m_wlba_table[i] = dik::byte_utils::swap16(m_wlba_table[i]);
 }
 
 WbfsFileReader::~WbfsFileReader() = default;
@@ -99,7 +98,7 @@ bool WbfsFileReader::ReadHeader()
   if (m_header.magic != WBFS_MAGIC)
     return false;
 
-  m_header.hd_sector_count = Common::swap32(m_header.hd_sector_count);
+  m_header.hd_sector_count = dik::byte_utils::swap32(m_header.hd_sector_count);
   m_hd_sector_size = 1ull << m_header.hd_sector_shift;
 
   if (m_size != (m_header.hd_sector_count * m_hd_sector_size))
@@ -115,7 +114,7 @@ bool WbfsFileReader::ReadHeader()
   m_blocks_per_disc =
       (WII_SECTOR_COUNT * WII_SECTOR_SIZE + m_wbfs_sector_size - 1) / m_wbfs_sector_size;
   m_disc_info_size =
-      Common::AlignUp(WII_DISC_HEADER_SIZE + m_blocks_per_disc * sizeof(u16), m_hd_sector_size);
+      dik::byte_utils::align_up(WII_DISC_HEADER_SIZE + m_blocks_per_disc * sizeof(u16), m_hd_sector_size);
 
   return m_header.disc_table[0] != 0;
 }

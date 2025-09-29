@@ -6,11 +6,11 @@
 #include <algorithm>
 #include <cstring>
 
-#include "Common/Crypto/AES.h"
-#include "Common/FileUtil.h"
-#include "Common/IOFile.h"
-#include "Common/Logging/Log.h"
-#include "Common/MsgHandler.h"
+#include "discimagekit/crypto/aes.h"
+#include "discimagekit/fs_utils.h"
+#include "discimagekit/io_file.h"
+#include "discimagekit/logging.h"
+#include "discimagekit/msg_handler.h"
 #include "Core/IOS/ES/Formats.h"
 
 namespace DiscIO
@@ -18,7 +18,7 @@ namespace DiscIO
 constexpr size_t NAND_SIZE = 0x20000000;
 constexpr size_t NAND_KEYS_SIZE = 0x400;
 
-NANDImporter::NANDImporter() : m_nand_root(File::GetUserPath(D_WIIROOT_IDX))
+NANDImporter::NANDImporter() : m_nand_root(File::GetUserPath(File::D_WIIROOT_IDX))
 {
 }
 NANDImporter::~NANDImporter() = default;
@@ -261,7 +261,7 @@ bool NANDImporter::ExtractCertificates()
           certificate_offset, min_offset, content_bytes.size());
       return false;
     }
-    const u16 certificate_size = Common::swap16(&content_bytes[certificate_offset - min_offset]);
+    const u16 certificate_size = dik::byte_utils::swap16(&content_bytes[certificate_offset - min_offset]);
     const size_t available_size = content_bytes.size() - static_cast<size_t>(certificate_offset);
     if (certificate_size > available_size)
     {

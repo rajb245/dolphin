@@ -10,9 +10,10 @@
 #include <string>
 #include <utility>
 
+#include "discimagekit/string_utils.h"
 #include "discimagekit/types.h"
-#include "Common/IOFile.h"
-#include "Common/MsgHandler.h"
+#include "discimagekit/io_file.h"
+#include "discimagekit/msg_handler.h"
 
 #include "DiscIO/CISOBlob.h"
 #include "DiscIO/CompressedBlob.h"
@@ -29,7 +30,7 @@ namespace DiscIO
 std::string GetName(BlobType blob_type, bool translate)
 {
   const auto translate_str = [translate](const std::string& str) {
-    return translate ? Common::GetStringT(str.c_str()) : str;
+    return translate ? dik::string_utils::translate(str.c_str()) : str;
   };
 
   switch (blob_type)

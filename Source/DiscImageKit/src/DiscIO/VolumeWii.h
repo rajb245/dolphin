@@ -12,14 +12,14 @@
 #include <vector>
 
 #include "discimagekit/types.h"
-#include "Common/Crypto/SHA1.h"
-#include "Common/Lazy.h"
+#include "discimagekit/crypto/sha1.h"
+#include "discimagekit/lazy.h"
 #include "Core/IOS/ES/Formats.h"
 #include "DiscIO/Filesystem.h"
 #include "DiscIO/Volume.h"
 #include "DiscIO/VolumeDisc.h"
 
-#include "Common/Crypto/AES.h"
+#include "discimagekit/crypto/aes.h"
 
 namespace DiscIO
 {
@@ -115,13 +115,13 @@ protected:
 private:
   struct PartitionDetails
   {
-    Common::Lazy<std::unique_ptr<Common::AES::Context>> key;
-    Common::Lazy<IOS::ES::TicketReader> ticket;
-    Common::Lazy<IOS::ES::TMDReader> tmd;
-    Common::Lazy<std::vector<u8>> cert_chain;
-    Common::Lazy<std::vector<u8>> h3_table;
-    Common::Lazy<std::unique_ptr<FileSystem>> file_system;
-    Common::Lazy<u64> data_offset;
+    dik::Lazy<std::unique_ptr<Common::AES::Context>> key;
+    dik::Lazy<IOS::ES::TicketReader> ticket;
+    dik::Lazy<IOS::ES::TMDReader> tmd;
+    dik::Lazy<std::vector<u8>> cert_chain;
+    dik::Lazy<std::vector<u8>> h3_table;
+    dik::Lazy<std::unique_ptr<FileSystem>> file_system;
+    dik::Lazy<u64> data_offset;
     u32 type = 0;
   };
 

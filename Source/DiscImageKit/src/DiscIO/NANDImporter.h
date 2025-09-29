@@ -11,9 +11,9 @@
 
 #include <fmt/format.h>
 
+#include "discimagekit/byte_utils.h"
 #include "discimagekit/types.h"
-#include "Common/Crypto/AES.h"
-#include "Common/Swap.h"
+#include "discimagekit/crypto/aes.h"
 
 namespace DiscIO
 {
@@ -42,21 +42,21 @@ public:
     char name[12];
     u8 mode;
     u8 attr;
-    Common::BigEndianValue<u16> sub;
-    Common::BigEndianValue<u16> sib;
-    Common::BigEndianValue<u32> size;
-    Common::BigEndianValue<u32> uid;
-    Common::BigEndianValue<u16> gid;
-    Common::BigEndianValue<u32> x3;
+    dik::byte_utils::big_endian_value<u16> sub;
+    dik::byte_utils::big_endian_value<u16> sib;
+    dik::byte_utils::big_endian_value<u32> size;
+    dik::byte_utils::big_endian_value<u32> uid;
+    dik::byte_utils::big_endian_value<u16> gid;
+    dik::byte_utils::big_endian_value<u32> x3;
   };
   static_assert(sizeof(NANDFSTEntry) == 0x20, "Wrong size");
 
   struct NANDSuperblock
   {
     std::array<char, 4> magic;  // "SFFS"
-    Common::BigEndianValue<u32> version;
-    Common::BigEndianValue<u32> unknown;
-    std::array<Common::BigEndianValue<u16>, 0x8000> fat;
+    dik::byte_utils::big_endian_value<u32> version;
+    dik::byte_utils::big_endian_value<u32> unknown;
+    std::array<dik::byte_utils::big_endian_value<u16>, 0x8000> fat;
     std::array<NANDFSTEntry, 0x17FF> fst;
     std::array<u8, 0x14> pad;
   };

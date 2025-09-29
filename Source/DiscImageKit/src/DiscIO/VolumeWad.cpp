@@ -13,14 +13,14 @@
 #include <utility>
 #include <vector>
 
-#include "Common/Align.h"
-#include "Common/Assert.h"
+#include "discimagekit/assert.h"
+#include "discimagekit/byte_utils.h"
+#include "discimagekit/string_utils.h"
 #include "discimagekit/types.h"
-#include "Common/Crypto/AES.h"
-#include "Common/Crypto/SHA1.h"
-#include "Common/Logging/Log.h"
-#include "Common/MsgHandler.h"
-#include "Common/StringUtil.h"
+#include "discimagekit/crypto/aes.h"
+#include "discimagekit/crypto/sha1.h"
+#include "discimagekit/logging.h"
+#include "discimagekit/msg_handler.h"
 #ifndef DIK_STANDALONE
 #include "Core/IOS/IOSC.h"
 #endif
@@ -43,11 +43,11 @@ VolumeWAD::VolumeWAD(std::unique_ptr<BlobReader> reader) : m_reader(std::move(re
   m_data_size = m_reader->ReadSwapped<u32>(0x18).value_or(0);
   m_opening_bnr_size = m_reader->ReadSwapped<u32>(0x1C).value_or(0);
 
-  m_cert_chain_offset = Common::AlignUp(m_hdr_size, 0x40);
-  m_ticket_offset = m_cert_chain_offset + Common::AlignUp(m_cert_chain_size, 0x40);
-  m_tmd_offset = m_ticket_offset + Common::AlignUp(m_ticket_size, 0x40);
-  m_data_offset = m_tmd_offset + Common::AlignUp(m_tmd_size, 0x40);
-  m_opening_bnr_offset = m_data_offset + Common::AlignUp(m_data_size, 0x40);
+  m_cert_chain_offset = dik::byte_utils::align_up(m_hdr_size, 0x40);
+  m_ticket_offset = m_cert_chain_offset + dik::byte_utils::align_up(m_cert_chain_size, 0x40);
+  m_tmd_offset = m_ticket_offset + dik::byte_utils::align_up(m_ticket_size, 0x40);
+  m_data_offset = m_tmd_offset + dik::byte_utils::align_up(m_tmd_size, 0x40);
+  m_opening_bnr_offset = m_data_offset + dik::byte_utils::align_up(m_data_size, 0x40);
 
   std::vector<u8> ticket_buffer(m_ticket_size);
   Read(m_ticket_offset, m_ticket_size, ticket_buffer.data());
@@ -125,7 +125,7 @@ std::vector<u8> VolumeWAD::GetContent(u16 index) const
   u64 offset = m_data_offset;
   for (const IOS::ES::Content& content : m_tmd.GetContents())
   {
-    const u64 aligned_size = Common::AlignUp(content.size, 0x40);
+    const u64 aligned_size = dik::byte_utils::align_up(content.size, 0x40);
     if (content.index == index)
     {
       std::vector<u8> data(aligned_size);
@@ -147,7 +147,7 @@ std::vector<u64> VolumeWAD::GetContentOffsets() const
   for (const IOS::ES::Content& content : contents)
   {
     content_offsets.emplace_back(offset);
-    offset += Common::AlignUp(content.size, 0x40);
+    offset += dik::byte_utils::align_up(content.size, 0x40);
   }
 
   return content_offsets;
@@ -157,7 +157,7 @@ bool VolumeWAD::CheckContentIntegrity(const IOS::ES::Content& content,
                                       const std::vector<u8>& encrypted_data,
                                       const IOS::ES::TicketReader& ticket) const
 {
-  if (encrypted_data.size() != Common::AlignUp(content.size, 0x40))
+  if (encrypted_data.size() != dik::byte_utils::align_up(content.size, 0x40))
     return false;
 
   auto context = Common::AES::CreateContextDecrypt(ticket.GetTitleKey().data());
@@ -201,10 +201,10 @@ IOS::ES::TicketReader VolumeWAD::GetTicketWithFixedCommonKey() const
       smallest_content = content;
       offset_of_smallest_content = offset;
     }
-    offset += Common::AlignUp(content.size, 0x40);
+    offset += dik::byte_utils::align_up(content.size, 0x40);
   }
 
-  std::vector<u8> content_data(Common::AlignUp(smallest_content.size, 0x40));
+  std::vector<u8> content_data(dik::byte_utils::align_up(smallest_content.size, 0x40));
   if (!m_reader->Read(offset_of_smallest_content, content_data.size(), content_data.data()))
     return m_ticket;
 
@@ -250,7 +250,7 @@ std::string VolumeWAD::GetMakerID(const Partition& partition) const
     return "00";
 
   // Some weird channels use 0x0000 in place of the MakerID, so we need a check here
-  if (!Common::IsPrintableCharacter(temp[0]) || !Common::IsPrintableCharacter(temp[1]))
+  if (!dik::string_utils::is_printable(temp[0]) || !dik::string_utils::is_printable(temp[1]))
     return "00";
 
   return DecodeString(temp);

@@ -18,13 +18,14 @@
 #include <io.h>
 #endif
 
-#include "Common/Assert.h"
+#include "discimagekit/assert.h"
+#include "discimagekit/hash_utils.h"
+#include "discimagekit/string_utils.h"
 #include "discimagekit/types.h"
-#include "Common/FileUtil.h"
-#include "Common/Hash.h"
-#include "Common/IOFile.h"
-#include "Common/Logging/Log.h"
-#include "Common/MsgHandler.h"
+#include "discimagekit/fs_utils.h"
+#include "discimagekit/io_file.h"
+#include "discimagekit/logging.h"
+#include "discimagekit/msg_handler.h"
 #include "DiscIO/Blob.h"
 #include "DiscIO/DiscScrubber.h"
 #include "DiscIO/MultithreadedCompressor.h"
@@ -117,7 +118,7 @@ bool CompressedBlobReader::GetBlock(u64 block_num, u8* out_ptr)
   }
 
   // First, check hash.
-  const u32 block_hash = Common::HashAdler32(m_zlib_buffer.data(), comp_block_size);
+  const u32 block_hash = dik::hash_utils::adler32(m_zlib_buffer.data(), comp_block_size);
   if (block_hash != m_hashes[block_num])
   {
     ERROR_LOG_FMT(DISCIO,
@@ -236,7 +237,7 @@ static ConversionResult<OutputParameters> Compress(CompressThreadState* state,
   }
 
   (*hashes)[parameters.block_number] =
-      Common::HashAdler32(output_parameters.data.data(), output_parameters.data.size());
+      dik::hash_utils::adler32(output_parameters.data.data(), output_parameters.data.size());
 
   return std::move(output_parameters);
 }
@@ -260,8 +261,8 @@ static ConversionResultCode Output(OutputParameters parameters, File::IOFile* ou
     const int ratio =
         parameters.inpos == 0 ? 0 : static_cast<int>(100 * *position / parameters.inpos);
 
-    const std::string text = Common::FmtFormatT("{0} of {1} blocks. Compression ratio {2}%",
-                                                parameters.block_number, num_blocks, ratio);
+    const std::string text = dik::string_utils::format_localized(
+        "{0} of {1} blocks. Compression ratio {2}%", parameters.block_number, num_blocks, ratio);
 
     const float completion = static_cast<float>(parameters.block_number) / num_blocks;
 
@@ -289,7 +290,7 @@ bool ConvertToGCZ(BlobReader* infile, const std::string& infile_path,
     return false;
   }
 
-  callback(Common::GetStringT("Files opened, ready to compress."), 0);
+  callback(dik::string_utils::translate("Files opened, ready to compress."), 0);
 
   CompressedBlobHeader header;
   header.magic_cookie = GCZ_MAGIC;
@@ -369,7 +370,7 @@ bool ConvertToGCZ(BlobReader* infile, const std::string& infile_path,
     outfile.WriteArray(offsets.data(), header.num_blocks);
     outfile.WriteArray(hashes.data(), header.num_blocks);
 
-    callback(Common::GetStringT("Done compressing disc image."), 1.0f);
+    callback(dik::string_utils::translate("Done compressing disc image."), 1.0f);
   }
 
   if (result == ConversionResultCode::ReadFailed)

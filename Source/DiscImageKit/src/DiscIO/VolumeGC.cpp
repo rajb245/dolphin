@@ -11,13 +11,12 @@
 #include <utility>
 #include <vector>
 
-#include "Common/Assert.h"
-#include "Common/ColorUtil.h"
+#include "discimagekit/assert.h"
+#include "discimagekit/color_utils.h"
 #include "discimagekit/types.h"
-#include "Common/Crypto/SHA1.h"
-#include "Common/Logging/Log.h"
-#include "Common/MsgHandler.h"
-#include "Common/StringUtil.h"
+#include "discimagekit/crypto/sha1.h"
+#include "discimagekit/logging.h"
+#include "discimagekit/msg_handler.h"
 
 #include "DiscIO/Blob.h"
 #include "DiscIO/DiscExtractor.h"
@@ -239,7 +238,7 @@ VolumeGC::ConvertedGCBanner VolumeGC::ExtractBannerInformation(const GCBanner& b
   banner.image_width = GC_BANNER_WIDTH;
   banner.image_height = GC_BANNER_HEIGHT;
   banner.image_buffer = std::vector<u32>(GC_BANNER_WIDTH * GC_BANNER_HEIGHT);
-  Common::Decode5A3Image(banner.image_buffer.data(), banner_file.image, GC_BANNER_WIDTH,
+  dik::color::decode_5a3(banner.image_buffer.data(), banner_file.image, GC_BANNER_WIDTH,
                          GC_BANNER_HEIGHT);
 
   for (u32 i = 0; i < number_of_languages; ++i)

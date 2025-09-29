@@ -14,12 +14,11 @@
 #include <string_view>
 #include <vector>
 
-#include "Common/CommonFuncs.h"
+#include "discimagekit/string_utils.h"
 #include "discimagekit/types.h"
-#include "Common/IOFile.h"
-#include "Common/Logging/Log.h"
-#include "Common/MsgHandler.h"
-#include "Common/StringUtil.h"
+#include "discimagekit/io_file.h"
+#include "discimagekit/logging.h"
+#include "discimagekit/msg_handler.h"
 #include "DiscIO/DiscUtils.h"
 #include "DiscIO/Filesystem.h"
 #include "DiscIO/VolumeDisc.h"
@@ -82,7 +81,7 @@ FileInfo::const_iterator FileInfoGCWii::end() const
 
 u32 FileInfoGCWii::Get(EntryProperty entry_property) const
 {
-  return Common::swap32(m_fst + FST_ENTRY_SIZE * m_index +
+  return dik::byte_utils::swap32(m_fst + FST_ENTRY_SIZE * m_index +
                         sizeof(u32) * static_cast<int>(entry_property));
 }
 
@@ -121,7 +120,7 @@ std::string FileInfoGCWii::GetName() const
 {
   // TODO: Should we really always use SHIFT-JIS?
   // Some names in Pikmin (NTSC-U) don't make sense without it, but is it correct?
-  return SHIFTJISToUTF8(reinterpret_cast<const char*>(m_fst + GetNameOffset()));
+  return dik::string_utils::shift_jis_to_utf8(reinterpret_cast<const char*>(m_fst + GetNameOffset()));
 }
 
 bool FileInfoGCWii::NameCaseInsensitiveEquals(std::string_view other) const
@@ -144,11 +143,13 @@ bool FileInfoGCWii::NameCaseInsensitiveEquals(std::string_view other) const
              static_cast<unsigned char>(*other_ptr) >= 0x80)
     {
       // other is in UTF-8 and this is in Shift-JIS, so we convert so that we can compare correctly
-      const std::string this_utf8 = SHIFTJISToUTF8(this_ptr);
+      const std::string this_utf8 = dik::string_utils::shift_jis_to_utf8(this_ptr);
       return std::equal(this_utf8.cbegin(), this_utf8.cend(), other.cbegin() + i, other.cend(),
-                        [](char a, char b) { return Common::ToLower(a) == Common::ToLower(b); });
+                        [](char a, char b) {
+                          return dik::string_utils::to_lower(a) == dik::string_utils::to_lower(b);
+                        });
     }
-    else if (Common::ToLower(*this_ptr) != Common::ToLower(*other_ptr))
+    else if (dik::string_utils::to_lower(*this_ptr) != dik::string_utils::to_lower(*other_ptr))
     {
       return false;
     }

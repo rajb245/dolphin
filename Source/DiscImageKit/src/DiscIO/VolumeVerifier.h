@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "discimagekit/types.h"
-#include "Common/Crypto/SHA1.h"
+#include "discimagekit/crypto/sha1.h"
 #include "Core/IOS/ES/Formats.h"
 #include "DiscIO/DiscScrubber.h"
 #include "DiscIO/Volume.h"

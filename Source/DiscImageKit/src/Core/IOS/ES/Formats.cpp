@@ -19,16 +19,17 @@
 #include <mbedtls/md.h>
 #include <mbedtls/rsa.h>
 
-#include "Common/Assert.h"
+#include "discimagekit/assert.h"
+#ifndef DIK_STANDALONE
 #include "Common/ChunkFile.h"
+#endif
+#include "discimagekit/byte_utils.h"
+#include "discimagekit/string_utils.h"
 #include "discimagekit/types.h"
-#include "Common/Crypto/AES.h"
-#include "Common/Crypto/SHA1.h"
-#include "Common/Logging/Log.h"
-#include "Common/NandPaths.h"
-#include "Common/Projection.h"
-#include "Common/StringUtil.h"
-#include "Common/Swap.h"
+#include "discimagekit/crypto/aes.h"
+#include "discimagekit/crypto/sha1.h"
+#include "discimagekit/logging.h"
+#include "discimagekit/nand_paths.h"
 #ifndef DIK_STANDALONE
 #include "Core/CommonTitles.h"
 #include "Core/IOS/Device.h"
@@ -145,7 +146,7 @@ bool SignedBlobReader::IsSignatureValid() const
 
 SignatureType SignedBlobReader::GetSignatureType() const
 {
-  return static_cast<SignatureType>(Common::swap32(m_bytes.data()));
+  return static_cast<SignatureType>(dik::byte_utils::swap32(m_bytes.data()));
 }
 
 template <typename T, typename It>
@@ -207,10 +208,12 @@ std::string SignedBlobReader::GetIssuer() const
   }
 }
 
+#ifndef DIK_STANDALONE
 void SignedBlobReader::DoState(PointerWrap& p)
 {
   p.Do(m_bytes);
 }
+#endif
 
 bool IsValidTMDSize(size_t size)
 {
@@ -265,32 +268,32 @@ std::vector<u8> TMDReader::GetRawView() const
 
 u16 TMDReader::GetBootIndex() const
 {
-  return Common::swap16(m_bytes.data() + offsetof(TMDHeader, boot_index));
+  return dik::byte_utils::swap16(m_bytes.data() + offsetof(TMDHeader, boot_index));
 }
 
 u64 TMDReader::GetIOSId() const
 {
-  return Common::swap64(m_bytes.data() + offsetof(TMDHeader, ios_id));
+  return dik::byte_utils::swap64(m_bytes.data() + offsetof(TMDHeader, ios_id));
 }
 
 u64 TMDReader::GetTitleId() const
 {
-  return Common::swap64(m_bytes.data() + offsetof(TMDHeader, title_id));
+  return dik::byte_utils::swap64(m_bytes.data() + offsetof(TMDHeader, title_id));
 }
 
 u32 TMDReader::GetTitleFlags() const
 {
-  return Common::swap32(m_bytes.data() + offsetof(TMDHeader, title_flags));
+  return dik::byte_utils::swap32(m_bytes.data() + offsetof(TMDHeader, title_flags));
 }
 
 u16 TMDReader::GetTitleVersion() const
 {
-  return Common::swap16(m_bytes.data() + offsetof(TMDHeader, title_version));
+  return dik::byte_utils::swap16(m_bytes.data() + offsetof(TMDHeader, title_version));
 }
 
 u16 TMDReader::GetGroupId() const
 {
-  return Common::swap16(m_bytes.data() + offsetof(TMDHeader, group_id));
+  return dik::byte_utils::swap16(m_bytes.data() + offsetof(TMDHeader, group_id));
 }
 
 DiscIO::Region TMDReader::GetRegion() const
@@ -304,7 +307,7 @@ DiscIO::Region TMDReader::GetRegion() const
 #endif
 
   const DiscIO::Region region =
-      static_cast<DiscIO::Region>(Common::swap16(m_bytes.data() + offsetof(TMDHeader, region)));
+      static_cast<DiscIO::Region>(dik::byte_utils::swap16(m_bytes.data() + offsetof(TMDHeader, region)));
 
   return region <= DiscIO::Region::NTSC_K ? region : DiscIO::Region::Unknown;
 }
@@ -320,7 +323,7 @@ std::string TMDReader::GetGameID() const
   std::memcpy(game_id, m_bytes.data() + offsetof(TMDHeader, title_id) + 4, 4);
   std::memcpy(game_id + 4, m_bytes.data() + offsetof(TMDHeader, group_id), 2);
 
-  if (std::ranges::all_of(game_id, Common::IsPrintableCharacter))
+  if (std::ranges::all_of(game_id, dik::string_utils::is_printable))
     return std::string(game_id, sizeof(game_id));
 
   return fmt::format("{:016x}", GetTitleId());
@@ -331,7 +334,7 @@ std::string TMDReader::GetGameTDBID() const
   const u8* begin = m_bytes.data() + offsetof(TMDHeader, title_id) + 4;
   const u8* end = begin + 4;
 
-  if (std::all_of(begin, end, Common::IsPrintableCharacter))
+  if (std::all_of(begin, end, dik::string_utils::is_printable))
     return std::string(begin, end);
 
   return fmt::format("{:016x}", GetTitleId());
@@ -339,7 +342,7 @@ std::string TMDReader::GetGameTDBID() const
 
 u16 TMDReader::GetNumContents() const
 {
-  return Common::swap16(m_bytes.data() + offsetof(TMDHeader, num_contents));
+  return dik::byte_utils::swap16(m_bytes.data() + offsetof(TMDHeader, num_contents));
 }
 
 bool TMDReader::GetContent(u16 index, Content* content) const
@@ -350,10 +353,10 @@ bool TMDReader::GetContent(u16 index, Content* content) const
   }
 
   const u8* content_base = m_bytes.data() + sizeof(TMDHeader) + index * sizeof(Content);
-  content->id = Common::swap32(content_base + offsetof(Content, id));
-  content->index = Common::swap16(content_base + offsetof(Content, index));
-  content->type = Common::swap16(content_base + offsetof(Content, type));
-  content->size = Common::swap64(content_base + offsetof(Content, size));
+  content->id = dik::byte_utils::swap32(content_base + offsetof(Content, id));
+  content->index = dik::byte_utils::swap16(content_base + offsetof(Content, index));
+  content->type = dik::byte_utils::swap16(content_base + offsetof(Content, type));
+  content->size = dik::byte_utils::swap64(content_base + offsetof(Content, size));
   std::copy_n(content_base + offsetof(Content, sha1), content->sha1.size(), content->sha1.begin());
 
   return true;
@@ -416,7 +419,7 @@ u32 TicketReader::GetTicketSize() const
 {
   if (IsV1Ticket())
   {
-    return Common::swap32(m_bytes.data() + sizeof(Ticket) +
+    return dik::byte_utils::swap32(m_bytes.data() + sizeof(Ticket) +
                           offsetof(V1TicketHeader, v1_ticket_size)) +
            sizeof(Ticket);
   }
@@ -429,7 +432,7 @@ std::vector<u8> TicketReader::GetRawTicket(u64 ticket_id_to_find) const
   for (size_t i = 0; i < GetNumberOfTickets(); ++i)
   {
     const auto ticket_begin = m_bytes.begin() + GetTicketSize() * i;
-    const u64 ticket_id = Common::swap64(&*ticket_begin + offsetof(ES::Ticket, ticket_id));
+    const u64 ticket_id = dik::byte_utils::swap64(&*ticket_begin + offsetof(ES::Ticket, ticket_id));
     if (ticket_id == ticket_id_to_find)
       return {ticket_begin, ticket_begin + GetTicketSize()};
   }
@@ -459,12 +462,12 @@ u8 TicketReader::GetVersion() const
 
 u32 TicketReader::GetDeviceId() const
 {
-  return Common::swap32(m_bytes.data() + offsetof(Ticket, device_id));
+  return dik::byte_utils::swap32(m_bytes.data() + offsetof(Ticket, device_id));
 }
 
 u64 TicketReader::GetTitleId() const
 {
-  return Common::swap64(m_bytes.data() + offsetof(Ticket, title_id));
+  return dik::byte_utils::swap64(m_bytes.data() + offsetof(Ticket, title_id));
 }
 
 u8 TicketReader::GetCommonKeyIndex() const
@@ -548,7 +551,7 @@ void TicketReader::DeleteTicket(u64 ticket_id_to_delete)
   for (size_t i = 0; i < num_tickets; ++i)
   {
     const auto ticket_start = m_bytes.cbegin() + GetTicketSize() * i;
-    const u64 ticket_id = Common::swap64(&*ticket_start + offsetof(Ticket, ticket_id));
+    const u64 ticket_id = dik::byte_utils::swap64(&*ticket_start + offsetof(Ticket, ticket_id));
     if (ticket_id != ticket_id_to_delete)
       new_ticket.insert(new_ticket.end(), ticket_start, ticket_start + GetTicketSize());
   }
@@ -704,7 +707,7 @@ static std::pair<u32, u64> ReadUidSysEntry(HLE::FSCore& fs, u64 fd, u64* ticks)
   if (fs.Read(fd, &uid, 1, ticks) != sizeof(uid))
     return {};
 
-  return {Common::swap32(uid), Common::swap64(title_id)};
+  return {dik::byte_utils::swap32(uid), dik::byte_utils::swap64(title_id)};
 }
 
 constexpr char UID_MAP_PATH[] = "/sys/uid.sys";
@@ -732,7 +735,9 @@ UIDSys::UIDSys(HLE::FSCore& fs_core) : m_fs{fs_core.GetFS()}
 
 u32 UIDSys::GetUIDFromTitle(u64 title_id) const
 {
-  const auto it = std::ranges::find(m_entries, title_id, Common::Projection::Value{});
+  const auto it = std::ranges::find_if(m_entries, [title_id](const auto& entry) {
+    return entry.second == title_id;
+  });
   return (it == m_entries.end()) ? 0 : it->first;
 }
 
@@ -756,8 +761,8 @@ u32 UIDSys::GetOrInsertUIDForTitle(const u64 title_id)
   m_entries.insert({uid, title_id});
 
   // Byte swap before writing.
-  const u64 swapped_title_id = Common::swap64(title_id);
-  const u32 swapped_uid = Common::swap32(uid);
+  const u64 swapped_title_id = dik::byte_utils::swap64(title_id);
+  const u32 swapped_uid = dik::byte_utils::swap32(uid);
 
   constexpr HLE::FS::Modes modes{HLE::FS::Mode::ReadWrite, HLE::FS::Mode::ReadWrite,
                                  HLE::FS::Mode::None};
@@ -806,7 +811,7 @@ bool CertReader::IsValid() const
 u32 CertReader::GetId() const
 {
   const size_t offset = GetSignatureSize() + offsetof(CertHeader, id);
-  return Common::swap32(m_bytes.data() + offset);
+  return dik::byte_utils::swap32(m_bytes.data() + offset);
 }
 
 std::string CertReader::GetName() const
@@ -819,7 +824,7 @@ std::string CertReader::GetName() const
 PublicKeyType CertReader::GetPublicKeyType() const
 {
   const size_t offset = GetSignatureSize() + offsetof(CertHeader, public_key_type);
-  return static_cast<PublicKeyType>(Common::swap32(m_bytes.data() + offset));
+  return static_cast<PublicKeyType>(dik::byte_utils::swap32(m_bytes.data() + offset));
 }
 
 template <typename T, typename It>
@@ -913,7 +918,7 @@ bool VerifySignedBlob(const SignedBlobReader& blob, const CertReader& issuer_cer
 bool VerifySignedBlob(const SignedBlobReader& blob, const std::vector<u8>& cert_chain)
 {
   const std::string issuer = blob.GetIssuer();
-  const std::vector<std::string> issuer_parts = SplitString(issuer, '-');
+  const std::vector<std::string> issuer_parts = dik::string_utils::split_string(issuer, '-');
   if (issuer_parts.size() != 3)
     return false;
 

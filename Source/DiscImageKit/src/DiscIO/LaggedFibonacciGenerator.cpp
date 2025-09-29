@@ -6,10 +6,9 @@
 #include <cstddef>
 #include <cstring>
 
-#include "Common/Align.h"
-#include "Common/Assert.h"
+#include "discimagekit/assert.h"
+#include "discimagekit/byte_utils.h"
 #include "discimagekit/types.h"
-#include "Common/Swap.h"
 
 namespace DiscIO
 {
@@ -23,7 +22,7 @@ void LaggedFibonacciGenerator::SetSeed(const u8 seed[SEED_SIZE * sizeof(u32)])
   m_position_bytes = 0;
 
   for (size_t i = 0; i < SEED_SIZE; ++i)
-    m_buffer[i] = Common::swap32(seed + i * sizeof(u32));
+    m_buffer[i] = dik::byte_utils::swap32(seed + i * sizeof(u32));
 
   Initialize(false);
 }
@@ -40,7 +39,7 @@ size_t LaggedFibonacciGenerator::GetSeed(const u8* data, size_t size, size_t dat
   // For code simplicity, only include whole u32 words when regenerating the seed. It would be
   // possible to get rid of this restriction and use a few additional bytes, but it's probably more
   // effort than it's worth considering that junk data often starts or ends on 4-byte offsets.
-  const size_t bytes_to_skip = Common::AlignUp(data_offset, sizeof(u32)) - data_offset;
+  const size_t bytes_to_skip = dik::byte_utils::align_up(data_offset, sizeof(u32)) - data_offset;
   const u32* u32_data = reinterpret_cast<const u32*>(data + bytes_to_skip);
   const size_t u32_size = (size - bytes_to_skip) / sizeof(u32);
   const size_t u32_data_offset = (data_offset + bytes_to_skip) / sizeof(u32);
@@ -69,7 +68,7 @@ bool LaggedFibonacciGenerator::GetSeed(const u32* data, size_t size, size_t data
 
   // If the data doesn't look like something we can regenerate, return early to save time
   if (!std::all_of(data, data + LFG_K, [](u32 x) {
-        return (Common::swap32(x) & 0x00C00000) == (Common::swap32(x) >> 2 & 0x00C00000);
+        return (dik::byte_utils::swap32(x) & 0x00C00000) == (dik::byte_utils::swap32(x) >> 2 & 0x00C00000);
       }))
   {
     return false;
@@ -165,7 +164,7 @@ bool LaggedFibonacciGenerator::Reinitialize(u32 seed_out[SEED_SIZE])
     Backward();
 
   for (u32& x : m_buffer)
-    x = Common::swap32(x);
+    x = dik::byte_utils::swap32(x);
 
   // Reconstruct the bits which are missing due to the output code shifting by 18 instead of 16.
   // Unfortunately we can't reconstruct bits 16 and 17 (counting LSB as 0) for the first word,
@@ -177,7 +176,7 @@ bool LaggedFibonacciGenerator::Reinitialize(u32 seed_out[SEED_SIZE])
   }
 
   for (size_t i = 0; i < SEED_SIZE; ++i)
-    seed_out[i] = Common::swap32(m_buffer[i]);
+    seed_out[i] = dik::byte_utils::swap32(m_buffer[i]);
 
   return Initialize(true);
 }
@@ -201,7 +200,7 @@ bool LaggedFibonacciGenerator::Initialize(bool check_existing_data)
   // Instead of doing the "shift by 18 instead of 16" oddity when actually outputting the data,
   // we can do the shifting (and byteswapping) at this point to make the output code simpler.
   for (u32& x : m_buffer)
-    x = Common::swap32((x & 0xFF00FFFF) | ((x >> 2) & 0x00FF0000));
+    x = dik::byte_utils::swap32((x & 0xFF00FFFF) | ((x >> 2) & 0x00FF0000));
 
   for (size_t i = 0; i < 4; ++i)
     Forward();

@@ -23,10 +23,10 @@
 #include <zstd.h>
 #endif
 
-#include "Common/Assert.h"
+#include "discimagekit/assert.h"
+#include "discimagekit/byte_utils.h"
 #include "discimagekit/types.h"
-#include "Common/MathUtil.h"
-#include "Common/Swap.h"
+#include "discimagekit/math_utils.h"
 #include "DiscIO/LaggedFibonacciGenerator.h"
 
 namespace DiscIO
@@ -121,8 +121,8 @@ bool PurgeDecompressor::Decompress(const DecompressionBuffer& in, DecompressionB
     if (m_segment_bytes_written < sizeof(m_segment))
       return true;
 
-    const size_t offset = Common::swap32(m_segment.offset);
-    const size_t size = Common::swap32(m_segment.size);
+    const size_t offset = dik::byte_utils::swap32(m_segment.offset);
+    const size_t size = dik::byte_utils::swap32(m_segment.size);
 
     if (m_out_bytes_written < offset)
     {
@@ -188,11 +188,11 @@ bool Bzip2Decompressor::Decompress(const DecompressionBuffer& in, DecompressionB
 
   char* const in_ptr = reinterpret_cast<char*>(const_cast<u8*>(in.data.data() + *in_bytes_read));
   stream.next_in = in_ptr;
-  stream.avail_in = MathUtil::SaturatingCast<u32>(in.bytes_written - *in_bytes_read);
+  stream.avail_in = dik::math::saturating_cast<u32>(in.bytes_written - *in_bytes_read);
 
   char* const out_ptr = reinterpret_cast<char*>(out->data.data() + out->bytes_written);
   stream.next_out = out_ptr;
-  stream.avail_out = MathUtil::SaturatingCast<u32>(out->data.size() - out->bytes_written);
+  stream.avail_out = dik::math::saturating_cast<u32>(out->data.size() - out->bytes_written);
 
   const int result = BZ2_bzDecompress(&stream);
 
@@ -396,7 +396,7 @@ bool RVZPackDecompressor::Decompress(const DecompressionBuffer& in, Decompressio
       if (result)
         return *result;
 
-      const u32 size = Common::swap32(m_decompressed.data.data() + m_decompressed_bytes_read);
+      const u32 size = dik::byte_utils::swap32(m_decompressed.data.data() + m_decompressed_bytes_read);
 
       m_junk = size & 0x80000000;
       if (m_junk)
@@ -547,8 +547,8 @@ bool PurgeCompressor::Compress(const u8* data, size_t size)
 
     const u32 non_zero_data_length = static_cast<u32>(non_zero_data_end - non_zero_data_start);
 
-    const PurgeSegment segment{Common::swap32(non_zero_data_start),
-                               Common::swap32(non_zero_data_length)};
+    const PurgeSegment segment{dik::byte_utils::swap32(non_zero_data_start),
+                               dik::byte_utils::swap32(non_zero_data_length)};
     std::memcpy(m_buffer.data() + m_bytes_written, &segment, sizeof(segment));
     m_bytes_written += sizeof(segment);
 

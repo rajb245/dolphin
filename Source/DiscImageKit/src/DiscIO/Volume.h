@@ -11,10 +11,10 @@
 #include <string>
 #include <vector>
 
+#include "discimagekit/byte_utils.h"
+#include "discimagekit/string_utils.h"
 #include "discimagekit/types.h"
-#include "Common/Crypto/SHA1.h"
-#include "Common/StringUtil.h"
-#include "Common/Swap.h"
+#include "discimagekit/crypto/sha1.h"
 #include "Core/IOS/ES/Formats.h"
 #include "DiscIO/Enums.h"
 
@@ -50,7 +50,7 @@ public:
     T temp;
     if (!Read(offset, sizeof(T), reinterpret_cast<u8*>(&temp), partition))
       return std::nullopt;
-    return Common::FromBigEndian(temp);
+    return dik::byte_utils::from_big_endian(temp);
   }
   std::optional<u64> ReadSwappedAndShifted(u64 offset, const Partition& partition) const
   {
@@ -151,9 +151,8 @@ protected:
     std::string string(data, strnlen(data, sizeof(data)));
 
     if (GetRegion() == Region::NTSC_J)
-      return SHIFTJISToUTF8(string);
-    else
-      return CP1252ToUTF8(string);
+      return dik::string_utils::shift_jis_to_utf8(string);
+    return dik::string_utils::cp1252_to_utf8(string);
   }
 
   void ReadAndAddToSyncHash(Common::SHA1::Context* context, u64 offset, u64 length,

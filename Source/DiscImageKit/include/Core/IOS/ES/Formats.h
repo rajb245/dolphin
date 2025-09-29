@@ -17,11 +17,10 @@
 #include "discimagekit/types.h"
 #ifndef DIK_STANDALONE
 #include "Core/IOS/Device.h"
+class PointerWrap;
 #endif
 #include "Core/IOS/IOSC.h"
 #include "DiscIO/Enums.h"
-
-class PointerWrap;
 
 namespace IOS
 {
@@ -195,7 +194,9 @@ public:
   // Example: Root-CA00000001 if the blob was signed by CA00000001, which is signed by the Root.
   std::string GetIssuer() const;
 
+#ifndef DIK_STANDALONE
   void DoState(PointerWrap& p);
+#endif
 
 protected:
   std::vector<u8> m_bytes;

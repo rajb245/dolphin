@@ -10,10 +10,10 @@
 
 #include <fmt/format.h>
 
-#include "Common/Assert.h"
-#include "Common/FileUtil.h"
-#include "Common/IOFile.h"
-#include "Common/MsgHandler.h"
+#include "discimagekit/assert.h"
+#include "discimagekit/fs_utils.h"
+#include "discimagekit/io_file.h"
+#include "discimagekit/msg_handler.h"
 
 namespace DiscIO
 {

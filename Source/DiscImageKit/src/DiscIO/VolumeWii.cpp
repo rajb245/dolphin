@@ -16,13 +16,12 @@
 #include <utility>
 #include <vector>
 
-#include "Common/Align.h"
-#include "Common/Assert.h"
+#include "discimagekit/assert.h"
+#include "discimagekit/byte_utils.h"
 #include "discimagekit/types.h"
-#include "Common/Crypto/AES.h"
-#include "Common/Crypto/SHA1.h"
-#include "Common/Logging/Log.h"
-#include "Common/Swap.h"
+#include "discimagekit/crypto/aes.h"
+#include "discimagekit/crypto/sha1.h"
+#include "discimagekit/logging.h"
 
 #include "DiscIO/Blob.h"
 #include "DiscIO/DiscExtractor.h"
@@ -148,13 +147,13 @@ VolumeWii::VolumeWii(std::unique_ptr<BlobReader> reader)
       };
 
       m_partitions.emplace(
-          partition, PartitionDetails{Common::Lazy<std::unique_ptr<Common::AES::Context>>(get_key),
-                                      Common::Lazy<IOS::ES::TicketReader>(get_ticket),
-                                      Common::Lazy<IOS::ES::TMDReader>(get_tmd),
-                                      Common::Lazy<std::vector<u8>>(get_cert_chain),
-                                      Common::Lazy<std::vector<u8>>(get_h3_table),
-                                      Common::Lazy<std::unique_ptr<FileSystem>>(get_file_system),
-                                      Common::Lazy<u64>(get_data_offset), *partition_type});
+          partition, PartitionDetails{dik::Lazy<std::unique_ptr<Common::AES::Context>>(get_key),
+                                      dik::Lazy<IOS::ES::TicketReader>(get_ticket),
+                                      dik::Lazy<IOS::ES::TMDReader>(get_tmd),
+                                      dik::Lazy<std::vector<u8>>(get_cert_chain),
+                                      dik::Lazy<std::vector<u8>>(get_h3_table),
+                                      dik::Lazy<std::unique_ptr<FileSystem>>(get_file_system),
+                                      dik::Lazy<u64>(get_data_offset), *partition_type});
     }
   }
 }
@@ -519,7 +518,7 @@ bool VolumeWii::HashGroup(const std::array<u8, BLOCK_DATA_SIZE> in[BLOCKS_PER_GR
       success = read_function(i);
 
     hash_futures[i] = std::async(std::launch::async, [&in, &out, &hash_futures, success, i] {
-      const size_t h1_base = Common::AlignDown(i, 8);
+      const size_t h1_base = dik::byte_utils::align_down(i, 8);
 
       if (success)
       {

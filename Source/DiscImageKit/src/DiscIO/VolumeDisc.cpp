@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "discimagekit/types.h"
-#include "Common/Crypto/SHA1.h"
+#include "discimagekit/crypto/sha1.h"
 #include "DiscIO/DiscUtils.h"
 #include "DiscIO/Enums.h"
 #include "DiscIO/Filesystem.h"

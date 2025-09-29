@@ -11,10 +11,10 @@
 #include <type_traits>
 #include <utility>
 
+#include "discimagekit/byte_utils.h"
 #include "discimagekit/types.h"
-#include "Common/Crypto/SHA1.h"
-#include "Common/IOFile.h"
-#include "Common/Swap.h"
+#include "discimagekit/crypto/sha1.h"
+#include "discimagekit/io_file.h"
 #include "DiscIO/Blob.h"
 #include "DiscIO/MultithreadedCompressor.h"
 #include "DiscIO/WIACompression.h"
@@ -51,16 +51,16 @@ public:
   BlobType GetBlobType() const override;
   std::unique_ptr<BlobReader> CopyReader() const override;
 
-  u64 GetRawSize() const override { return Common::swap64(m_header_1.wia_file_size); }
-  u64 GetDataSize() const override { return Common::swap64(m_header_1.iso_file_size); }
+  u64 GetRawSize() const override { return dik::byte_utils::swap64(m_header_1.wia_file_size); }
+  u64 GetDataSize() const override { return dik::byte_utils::swap64(m_header_1.iso_file_size); }
   DataSizeType GetDataSizeType() const override { return DataSizeType::Accurate; }
 
-  u64 GetBlockSize() const override { return Common::swap32(m_header_2.chunk_size); }
+  u64 GetBlockSize() const override { return dik::byte_utils::swap32(m_header_2.chunk_size); }
   bool HasFastRandomAccessInBlock() const override { return false; }
   std::string GetCompressionMethod() const override;
   std::optional<int> GetCompressionLevel() const override
   {
-    return static_cast<int>(static_cast<s32>(Common::swap32(m_header_2.compression_level)));
+    return static_cast<int>(static_cast<s32>(dik::byte_utils::swap32(m_header_2.compression_level)));
   }
 
   bool Read(u64 offset, u64 size, u8* out_ptr) override;

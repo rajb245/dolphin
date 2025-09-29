@@ -12,9 +12,10 @@
 #include <string>
 #include <string_view>
 
+#include "discimagekit/logging.h"
 #include "discimagekit/types.h"
-#include "Common/FileUtil.h"
-#include "Common/IOFile.h"
+#include "discimagekit/fs_utils.h"
+#include "discimagekit/io_file.h"
 #include "DiscIO/DiscUtils.h"
 #include "DiscIO/Enums.h"
 #include "DiscIO/Filesystem.h"

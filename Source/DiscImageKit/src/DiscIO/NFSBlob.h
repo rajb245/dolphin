@@ -10,8 +10,8 @@
 #include <vector>
 
 #include "discimagekit/types.h"
-#include "Common/Crypto/AES.h"
-#include "Common/IOFile.h"
+#include "discimagekit/crypto/aes.h"
+#include "discimagekit/io_file.h"
 #include "DiscIO/Blob.h"
 
 // This is the file format used for Wii games released on the Wii U eShop.

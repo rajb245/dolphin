@@ -10,15 +10,16 @@
 
 #include <picojson.h>
 
-#include "Common/IOFile.h"
-#include "Common/MathUtil.h"
-#include "Common/StringUtil.h"
+#include "discimagekit/io_file.h"
+#include "discimagekit/math_utils.h"
+#include "discimagekit/string_utils.h"
 
 namespace DiscIO
 {
 static std::string MakeAbsolute(const std::string& directory, const std::string& path)
 {
-  return PathToString(StringToPath(directory) / StringToPath(path));
+  return dik::string_utils::path_to_string(dik::string_utils::string_to_path(directory) /
+                                           dik::string_utils::string_to_path(path));
 }
 
 std::optional<GameModDescriptor> ParseGameModDescriptorFile(const std::string& filename)
@@ -33,7 +34,7 @@ std::optional<GameModDescriptor> ParseGameModDescriptorFile(const std::string& f
     return std::nullopt;
 
 #ifdef _WIN32
-  std::string path = ReplaceAll(filename, "\\", "/");
+  std::string path = dik::string_utils::replace_all(filename, "\\", "/");
 #else
   const std::string& path = filename;
 #endif
@@ -59,7 +60,7 @@ ParseRiivolutionOptions(const picojson::array& array)
       else if (key == "option-name" && value.is<std::string>())
         option.option_name = value.get<std::string>();
       else if (key == "choice" && value.is<double>())
-        option.choice = MathUtil::SaturatingCast<u32>(value.get<double>());
+        option.choice = dik::math::saturating_cast<u32>(value.get<double>());
     }
   }
   return options;
@@ -98,7 +99,7 @@ std::optional<GameModDescriptor> ParseGameModDescriptorString(std::string_view j
                                                               std::string_view json_path)
 {
   std::string json_directory;
-  SplitPath(json_path, &json_directory, nullptr, nullptr);
+  dik::string_utils::split_path(json_path, &json_directory, nullptr, nullptr);
 
   picojson::value json_root;
   std::string err;

@@ -11,9 +11,9 @@
 #include <variant>
 #include <vector>
 
-#include "Common/Assert.h"
-#include "Common/Event.h"
-#include "Common/Result.h"
+#include "discimagekit/assert.h"
+#include "discimagekit/event.h"
+#include "discimagekit/result.h"
 
 namespace DiscIO
 {
@@ -27,7 +27,7 @@ enum class ConversionResultCode
 };
 
 template <typename T>
-using ConversionResult = Common::Result<ConversionResultCode, T>;
+using ConversionResult = dik::Result<ConversionResultCode, T>;
 
 // This class starts a number of compression threads and one output thread.
 // The set_up_compress_thread_state function is called at the start of each compression thread.
@@ -123,11 +123,11 @@ private:
   {
     std::thread thread;
 
-    Common::Event compress_ready_event;
-    Common::Event compress_event;
-    Common::Event compress_done_event;
-    Common::Event output_ready_event;
-    Common::Event output_event;
+    dik::Event compress_ready_event;
+    dik::Event compress_event;
+    dik::Event compress_done_event;
+    dik::Event output_ready_event;
+    dik::Event output_event;
 
     CompressParameters compress_parameters;
     OutputParameters output_parameters;
@@ -167,7 +167,7 @@ private:
       }
       else
       {
-        SetError(result.Error());
+        SetError(result.error());
       }
 
       state->compress_done_event.Set();
@@ -210,7 +210,7 @@ private:
       m_compress;
   std::function<ConversionResultCode(OutputParameters)> m_output;
 
-  // We can't use std::vector for this, because Common::Event is not movable
+  // We can't use std::vector for this, because dik::Event is not movable
   std::unique_ptr<CompressThread[]> m_compress_threads;
   std::thread m_output_thread;
 

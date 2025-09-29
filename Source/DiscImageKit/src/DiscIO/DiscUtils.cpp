@@ -11,9 +11,9 @@
 
 #include <fmt/format.h>
 
+#include "discimagekit/string_utils.h"
 #include "discimagekit/types.h"
-#include "Common/MathUtil.h"
-#include "Common/StringUtil.h"
+#include "discimagekit/math_utils.h"
 #include "DiscIO/Blob.h"
 #include "DiscIO/Filesystem.h"
 #include "DiscIO/Volume.h"
@@ -40,7 +40,7 @@ std::string NameForPartitionType(u32 partition_type, bool include_prefix)
                                       static_cast<char>((partition_type >> 16) & 0xFF),
                                       static_cast<char>((partition_type >> 8) & 0xFF),
                                       static_cast<char>(partition_type & 0xFF)};
-    if (std::ranges::all_of(type_as_game_id, Common::IsAlnum))
+    if (std::ranges::all_of(type_as_game_id, dik::string_utils::is_alnum))
     {
       return include_prefix ? "P-" + type_as_game_id : type_as_game_id;
     }
@@ -213,7 +213,7 @@ bool IsDiscImageBlockSizeValid(int block_size, BlobType format)
   {
   case BlobType::GCZ:
     // Block size "must" be a power of 2
-    if (!MathUtil::IsPow2(block_size))
+    if (!dik::math::is_power_of_two(block_size))
       return false;
 
     break;
@@ -228,7 +228,7 @@ bool IsDiscImageBlockSizeValid(int block_size, BlobType format)
     // Block sizes smaller than the large block size threshold must be a power of 2
     // Block sizes larger than that threshold must be a multiple of the threshold
     if (block_size < RVZ_MIN_BLOCK_SIZE ||
-        (block_size < RVZ_BIG_BLOCK_SIZE_LCM && !MathUtil::IsPow2(block_size)) ||
+        (block_size < RVZ_BIG_BLOCK_SIZE_LCM && !dik::math::is_power_of_two(block_size)) ||
         (block_size > RVZ_BIG_BLOCK_SIZE_LCM && block_size % RVZ_BIG_BLOCK_SIZE_LCM != 0))
     {
       return false;

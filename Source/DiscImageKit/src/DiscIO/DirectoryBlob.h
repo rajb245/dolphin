@@ -15,14 +15,13 @@
 #include <vector>
 
 #include "discimagekit/types.h"
-#include "Common/FileUtil.h"
+#include "discimagekit/fs_utils.h"
 #include "DiscIO/Blob.h"
 #include "DiscIO/Volume.h"
 #include "DiscIO/WiiEncryptionCache.h"
 
 namespace File
 {
-struct FSTEntry;
 class IOFile;
 }  // namespace File
 

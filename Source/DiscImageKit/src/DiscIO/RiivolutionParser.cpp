@@ -4,6 +4,8 @@
 #include "DiscIO/RiivolutionParser.h"
 
 #include <algorithm>
+#include <charconv>
+#include <filesystem>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -12,10 +14,9 @@
 #include <fmt/format.h>
 #include <pugixml.hpp>
 
-#include "Common/FileSearch.h"
-#include "Common/FileUtil.h"
-#include "Common/IOFile.h"
-#include "Common/StringUtil.h"
+#include "discimagekit/fs_utils.h"
+#include "discimagekit/io_file.h"
+#include "discimagekit/string_utils.h"
 #include "DiscIO/GameModDescriptor.h"
 #include "DiscIO/RiivolutionPatcher.h"
 
@@ -61,9 +62,12 @@ static std::vector<u8> ReadHexString(std::string_view sv)
   while (!sv.empty())
   {
     u8 tmp;
-    if (!TryParse(std::string(sv.substr(0, 2)), &tmp, 16))
+    const auto token = sv.substr(0, 2);
+    unsigned int value = 0;
+    const auto result = std::from_chars(token.data(), token.data() + token.size(), value, 16);
+    if (result.ec != std::errc{} || result.ptr != token.data() + token.size() || value > 0xFF)
       return {};
-    result.push_back(tmp);
+    result.push_back(static_cast<u8>(value));
     sv = sv.substr(2);
   }
   return result;
@@ -399,7 +403,12 @@ std::vector<Patch> GenerateRiivolutionPatchesFromConfig(const std::string& root_
   const std::optional<Config> config = ParseConfigFile(
       fmt::format("{}/riivolution/config/{}.xml", root_directory, game_id.substr(0, 4)));
 
-  for (const std::string& path : Common::DoFileSearch({root_directory + "riivolution"}, {".xml"}))
+  const std::string search_root =
+      (std::filesystem::path(root_directory) / "riivolution").generic_string();
+  const std::vector<std::string> xml_files =
+      dik::fs::glob_files({search_root}, {".xml"});
+
+  for (const std::string& path : xml_files)
   {
     std::optional<Disc> parsed = ParseFile(path);
     if (!parsed || !parsed->IsValidForGame(game_id, revision, disc_number))

@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <charconv>
 #include <cstring>
 #include <locale>
 #include <map>
@@ -15,15 +16,13 @@
 #include <variant>
 #include <vector>
 
-#include "Common/Align.h"
-#include "Common/Assert.h"
-#include "Common/CommonPaths.h"
+#include "discimagekit/assert.h"
+#include "discimagekit/byte_utils.h"
+#include "discimagekit/string_utils.h"
 #include "discimagekit/types.h"
-#include "Common/FileUtil.h"
-#include "Common/IOFile.h"
-#include "Common/Logging/Log.h"
-#include "Common/StringUtil.h"
-#include "Common/Swap.h"
+#include "discimagekit/fs_utils.h"
+#include "discimagekit/io_file.h"
+#include "discimagekit/logging.h"
 #include "Core/IOS/ES/Formats.h"
 #include "DiscIO/Blob.h"
 #include "DiscIO/DiscUtils.h"
@@ -209,16 +208,19 @@ static std::optional<PartitionType> ParsePartitionDirectoryName(const std::strin
     // e.g. "P-HA8E" (normally only used for Super Smash Bros. Brawl's VC partitions)
     if (name[1] == '-' && name.size() == 6)
     {
-      const u32 result = Common::swap32(reinterpret_cast<const u8*>(name.data() + 2));
+      const u32 result = dik::byte_utils::swap32(reinterpret_cast<const u8*>(name.data() + 2));
       return static_cast<PartitionType>(result);
     }
 
     // e.g. "P0"
     if (std::all_of(name.cbegin() + 1, name.cend(), [](char c) { return c >= '0' && c <= '9'; }))
     {
-      u32 result;
-      if (TryParse(name.substr(1), &result))
-        return static_cast<PartitionType>(result);
+      const std::string_view digits = std::string_view(name).substr(1);
+      unsigned int value = 0;
+      const auto parse_result =
+          std::from_chars(digits.data(), digits.data() + digits.size(), value, 10);
+      if (parse_result.ec == std::errc{} && parse_result.ptr == digits.data() + digits.size())
+        return static_cast<PartitionType>(value);
     }
   }
 
@@ -694,7 +696,7 @@ void DirectoryBlobReader::SetPartitions(std::vector<PartitionWithType>&& partiti
     SetPartitionHeader(&partitions[i].partition, partition_address);
 
     const u64 data_size =
-        Common::AlignUp(partitions[i].partition.GetDataSize(), VolumeWii::BLOCK_DATA_SIZE);
+        dik::byte_utils::align_up(partitions[i].partition.GetDataSize(), VolumeWii::BLOCK_DATA_SIZE);
     partitions[i].partition.SetDataSize(data_size);
     const u64 encrypted_data_size =
         (data_size / VolumeWii::BLOCK_DATA_SIZE) * VolumeWii::BLOCK_TOTAL_SIZE;
@@ -704,7 +706,7 @@ void DirectoryBlobReader::SetPartitions(std::vector<PartitionWithType>&& partiti
                                 ContentPartition{0, partition_data_offset});
     const u64 unaligned_next_partition_address = VolumeWii::OffsetInHashedPartitionToRawOffset(
         data_size, Partition(partition_address), PARTITION_DATA_OFFSET);
-    partition_address = Common::AlignUp(unaligned_next_partition_address, 0x10000ull);
+    partition_address = dik::byte_utils::align_up(unaligned_next_partition_address, 0x10000ull);
   }
   m_data_size = partition_address;
 
@@ -754,7 +756,7 @@ void DirectoryBlobReader::SetPartitionHeader(DirectoryBlobPartition* partition,
         partition_address + TMD_OFFSET, IOS::ES::MAX_TMD_SIZE, partition_root + "tmd.bin");
   }
 
-  const u64 cert_offset = Common::AlignUp(TMD_OFFSET + tmd_size, 0x20ull);
+  const u64 cert_offset = dik::byte_utils::align_up(TMD_OFFSET + tmd_size, 0x20ull);
   const u64 max_cert_size = H3_OFFSET - cert_offset;
 
   u64 cert_size;
@@ -796,7 +798,7 @@ void DirectoryBlobReader::SetPartitionHeader(DirectoryBlobPartition* partition,
   }
 
   constexpr u32 PARTITION_HEADER_SIZE = 0x1c;
-  const u64 data_size = Common::AlignUp(partition->GetDataSize(), 0x7c00) / 0x7c00 * 0x8000;
+  const u64 data_size = dik::byte_utils::align_up(partition->GetDataSize(), 0x7c00) / 0x7c00 * 0x8000;
   std::vector<u8> partition_header(PARTITION_HEADER_SIZE);
   Write32(static_cast<u32>(tmd_size), 0x0, &partition_header);
   Write32(TMD_OFFSET >> 2, 0x4, &partition_header);
@@ -973,8 +975,8 @@ void DirectoryBlobPartition::SetDiscType(std::optional<bool> is_wii,
   }
   else
   {
-    m_is_wii = Common::swap32(&disc_header[0x18]) == WII_DISC_MAGIC;
-    const bool is_gc = Common::swap32(&disc_header[0x1c]) == GAMECUBE_DISC_MAGIC;
+    m_is_wii = dik::byte_utils::swap32(&disc_header[0x18]) == WII_DISC_MAGIC;
+    const bool is_gc = dik::byte_utils::swap32(&disc_header[0x1c]) == GAMECUBE_DISC_MAGIC;
     if (m_is_wii == is_gc)
     {
       ERROR_LOG_FMT(DISCIO, "Couldn't detect disc type based on disc header; assuming {}",
@@ -1029,7 +1031,7 @@ u64 DirectoryBlobPartition::SetApploader(std::vector<u8> apploader, const std::s
   else
   {
     const size_t apploader_size =
-        0x20 + Common::swap32(*(u32*)&apploader[0x14]) + Common::swap32(*(u32*)&apploader[0x18]);
+        0x20 + dik::byte_utils::swap32(*(u32*)&apploader[0x14]) + dik::byte_utils::swap32(*(u32*)&apploader[0x18]);
     if (apploader_size != apploader.size())
       ERROR_LOG_FMT(DISCIO, "{} is the wrong size... Is it really an apploader?", log_path);
     else
@@ -1047,7 +1049,7 @@ u64 DirectoryBlobPartition::SetApploader(std::vector<u8> apploader, const std::s
   m_contents.Add(APPLOADER_ADDRESS, std::move(apploader));
 
   // Return DOL address, 32 byte aligned (plus 32 byte padding)
-  return Common::AlignUp(APPLOADER_ADDRESS + apploader_size + 0x20, 0x20ull);
+  return dik::byte_utils::align_up(APPLOADER_ADDRESS + apploader_size + 0x20, 0x20ull);
 }
 
 u64 DirectoryBlobPartition::SetDOLFromFile(const std::string& path, u64 dol_address,
@@ -1058,7 +1060,7 @@ u64 DirectoryBlobPartition::SetDOLFromFile(const std::string& path, u64 dol_addr
   Write32(static_cast<u32>(dol_address >> m_address_shift), 0x0420, disc_header);
 
   // Return FST address, 32 byte aligned (plus 32 byte padding)
-  return Common::AlignUp(dol_address + dol_size + 0x20, 0x20ull);
+  return dik::byte_utils::align_up(dol_address + dol_size + 0x20, 0x20ull);
 }
 
 u64 DirectoryBlobPartition::SetDOL(FSTBuilderNode dol_node, u64 dol_address,
@@ -1070,7 +1072,7 @@ u64 DirectoryBlobPartition::SetDOL(FSTBuilderNode dol_node, u64 dol_address,
   Write32(static_cast<u32>(dol_address >> m_address_shift), 0x0420, disc_header);
 
   // Return FST address, 32 byte aligned (plus 32 byte padding)
-  return Common::AlignUp(dol_address + dol_node.m_size + 0x20, 0x20ull);
+  return dik::byte_utils::align_up(dol_address + dol_node.m_size + 0x20, 0x20ull);
 }
 
 static std::vector<FSTBuilderNode> ConvertFSTEntriesToBuilderNodes(const File::FSTEntry& parent)
@@ -1108,7 +1110,7 @@ static void ConvertUTF8NamesToSHIFTJIS(std::vector<FSTBuilderNode>* fst)
   {
     if (entry.IsFolder())
       ConvertUTF8NamesToSHIFTJIS(&entry.GetFolderContent());
-    entry.m_filename = UTF8ToSHIFTJIS(entry.m_filename);
+    entry.m_filename = dik::string_utils::utf8_to_shift_jis(entry.m_filename);
   }
 }
 
@@ -1144,7 +1146,7 @@ void DirectoryBlobPartition::BuildFST(std::vector<FSTBuilderNode> root_nodes, u6
 {
   ConvertUTF8NamesToSHIFTJIS(&root_nodes);
 
-  u32 name_table_size = Common::AlignUp(ComputeNameSize(root_nodes), 1ull << m_address_shift);
+  u32 name_table_size = dik::byte_utils::align_up(ComputeNameSize(root_nodes), 1ull << m_address_shift);
 
   // 1 extra for the root entry
   u64 total_entries = RecalculateFolderSizes(&root_nodes) + 1;
@@ -1153,7 +1155,7 @@ void DirectoryBlobPartition::BuildFST(std::vector<FSTBuilderNode> root_nodes, u6
   std::vector<u8> fst_data(name_table_offset + name_table_size);
 
   // 32 KiB aligned start of data on disc
-  u64 current_data_address = Common::AlignUp(fst_address + fst_data.size(), 0x8000ull);
+  u64 current_data_address = dik::byte_utils::align_up(fst_address + fst_data.size(), 0x8000ull);
 
   u32 fst_offset = 0;   // Offset within FST data
   u32 name_offset = 0;  // Offset within name table
@@ -1166,7 +1168,7 @@ void DirectoryBlobPartition::BuildFST(std::vector<FSTBuilderNode> root_nodes, u6
                  root_offset, name_table_offset);
 
   // overflow check, compare the aligned name offset with the aligned name table size
-  ASSERT(Common::AlignUp(name_offset, 1ull << m_address_shift) == name_table_size);
+  ASSERT(dik::byte_utils::align_up(name_offset, 1ull << m_address_shift) == name_table_size);
 
   // write FST size and location
   Write32((u32)(fst_address >> m_address_shift), 0x0424, disc_header);
@@ -1214,8 +1216,8 @@ void DirectoryBlobPartition::WriteDirectory(std::vector<u8>* fst_data,
   std::ranges::sort(sorted_entries, [](const FSTBuilderNode& one, const FSTBuilderNode& two) {
     std::string one_upper = one.m_filename;
     std::string two_upper = two.m_filename;
-    Common::ToUpper(&one_upper);
-    Common::ToUpper(&two_upper);
+    dik::string_utils::to_upper(one_upper);
+    dik::string_utils::to_upper(two_upper);
     return one_upper == two_upper ? one.m_filename < two.m_filename : one_upper < two_upper;
   });
 
@@ -1248,7 +1250,7 @@ void DirectoryBlobPartition::WriteDirectory(std::vector<u8>* fst_data,
       }
 
       // 32 KiB aligned - many games are fine with less alignment, but not all
-      *data_offset = Common::AlignUp(*data_offset + entry.m_size, 0x8000ull);
+      *data_offset = dik::byte_utils::align_up(*data_offset + entry.m_size, 0x8000ull);
     }
   }
 }

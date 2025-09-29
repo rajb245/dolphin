@@ -20,16 +20,16 @@
 #include <zstd.h>
 #endif
 
-#include "Common/Align.h"
-#include "Common/Assert.h"
+#include "discimagekit/assert.h"
+#include "discimagekit/byte_utils.h"
+#include "discimagekit/string_utils.h"
 #include "discimagekit/types.h"
-#include "Common/Crypto/SHA1.h"
-#include "Common/FileUtil.h"
-#include "Common/IOFile.h"
-#include "Common/Logging/Log.h"
-#include "Common/MsgHandler.h"
-#include "Common/ScopeGuard.h"
-#include "Common/Swap.h"
+#include "discimagekit/crypto/sha1.h"
+#include "discimagekit/fs_utils.h"
+#include "discimagekit/io_file.h"
+#include "discimagekit/logging.h"
+#include "discimagekit/msg_handler.h"
+#include "discimagekit/scope_guard.h"
 
 #include "DiscIO/Blob.h"
 #include "DiscIO/DiscUtils.h"
@@ -110,8 +110,8 @@ bool WIARVZFileReader<RVZ>::Initialize(const std::string& path)
   const u32 version_read_compatible =
       RVZ ? RVZ_VERSION_READ_COMPATIBLE : WIA_VERSION_READ_COMPATIBLE;
 
-  const u32 file_version = Common::swap32(m_header_1.version);
-  const u32 file_version_compatible = Common::swap32(m_header_1.version_compatible);
+  const u32 file_version = dik::byte_utils::swap32(m_header_1.version);
+  const u32 file_version_compatible = dik::byte_utils::swap32(m_header_1.version_compatible);
 
   if (version < file_version_compatible || version_read_compatible > file_version)
   {
@@ -124,13 +124,13 @@ bool WIARVZFileReader<RVZ>::Initialize(const std::string& path)
   if (m_header_1.header_1_hash != header_1_actual_hash)
     return false;
 
-  if (Common::swap64(m_header_1.wia_file_size) != m_file.GetSize())
+  if (dik::byte_utils::swap64(m_header_1.wia_file_size) != m_file.GetSize())
   {
     ERROR_LOG_FMT(DISCIO, "File size is incorrect for {}", path);
     return false;
   }
 
-  const u32 header_2_size = Common::swap32(m_header_1.header_2_size);
+  const u32 header_2_size = dik::byte_utils::swap32(m_header_1.header_2_size);
   const u32 header_2_min_size = sizeof(WIAHeader2) - sizeof(WIAHeader2::compressor_data);
   if (header_2_size < header_2_min_size)
     return false;
@@ -151,7 +151,7 @@ bool WIARVZFileReader<RVZ>::Initialize(const std::string& path)
     return false;
   }
 
-  const u32 chunk_size = Common::swap32(m_header_2.chunk_size);
+  const u32 chunk_size = dik::byte_utils::swap32(m_header_2.chunk_size);
   const auto is_power_of_two = [](u32 x) { return (x & (x - 1)) == 0; };
   if ((!RVZ || chunk_size < VolumeWii::BLOCK_TOTAL_SIZE || !is_power_of_two(chunk_size)) &&
       chunk_size % VolumeWii::GROUP_TOTAL_SIZE != 0)
@@ -159,7 +159,7 @@ bool WIARVZFileReader<RVZ>::Initialize(const std::string& path)
     return false;
   }
 
-  const u32 compression_type = Common::swap32(m_header_2.compression_type);
+  const u32 compression_type = dik::byte_utils::swap32(m_header_2.compression_type);
   m_compression_type = static_cast<WIARVZCompressionType>(compression_type);
   if (m_compression_type > (RVZ ? WIARVZCompressionType::Zstd : WIARVZCompressionType::LZMA2) ||
       (RVZ && m_compression_type == WIARVZCompressionType::Purge))
@@ -168,10 +168,10 @@ bool WIARVZFileReader<RVZ>::Initialize(const std::string& path)
     return false;
   }
 
-  const size_t number_of_partition_entries = Common::swap32(m_header_2.number_of_partition_entries);
-  const size_t partition_entry_size = Common::swap32(m_header_2.partition_entry_size);
+  const size_t number_of_partition_entries = dik::byte_utils::swap32(m_header_2.number_of_partition_entries);
+  const size_t partition_entry_size = dik::byte_utils::swap32(m_header_2.partition_entry_size);
   std::vector<u8> partition_entries(partition_entry_size * number_of_partition_entries);
-  if (!m_file.Seek(Common::swap64(m_header_2.partition_entries_offset), File::SeekOrigin::Begin))
+  if (!m_file.Seek(dik::byte_utils::swap64(m_header_2.partition_entries_offset), File::SeekOrigin::Begin))
     return false;
   if (!m_file.ReadBytes(partition_entries.data(), partition_entries.size()))
     return false;
@@ -197,28 +197,28 @@ bool WIARVZFileReader<RVZ>::Initialize(const std::string& path)
     size_t non_empty_entries = 0;
     for (size_t j = 0; j < entries.size(); ++j)
     {
-      const u32 number_of_sectors = Common::swap32(entries[j].number_of_sectors);
+      const u32 number_of_sectors = dik::byte_utils::swap32(entries[j].number_of_sectors);
       if (number_of_sectors != 0)
       {
         ++non_empty_entries;
 
-        const u32 last_sector = Common::swap32(entries[j].first_sector) + number_of_sectors;
+        const u32 last_sector = dik::byte_utils::swap32(entries[j].first_sector) + number_of_sectors;
         m_data_entries.emplace(last_sector * VolumeWii::BLOCK_TOTAL_SIZE, DataEntry(i, j));
       }
     }
 
     if (non_empty_entries > 1)
     {
-      if (Common::swap32(entries[0].first_sector) > Common::swap32(entries[1].first_sector))
+      if (dik::byte_utils::swap32(entries[0].first_sector) > dik::byte_utils::swap32(entries[1].first_sector))
         return false;
     }
   }
 
-  const u32 number_of_raw_data_entries = Common::swap32(m_header_2.number_of_raw_data_entries);
+  const u32 number_of_raw_data_entries = dik::byte_utils::swap32(m_header_2.number_of_raw_data_entries);
   m_raw_data_entries.resize(number_of_raw_data_entries);
   Chunk& raw_data_entries =
-      ReadCompressedData(Common::swap64(m_header_2.raw_data_entries_offset),
-                         Common::swap32(m_header_2.raw_data_entries_size),
+      ReadCompressedData(dik::byte_utils::swap64(m_header_2.raw_data_entries_offset),
+                         dik::byte_utils::swap32(m_header_2.raw_data_entries_size),
                          number_of_raw_data_entries * sizeof(RawDataEntry), m_compression_type);
   if (!raw_data_entries.ReadAll(&m_raw_data_entries))
     return false;
@@ -226,16 +226,16 @@ bool WIARVZFileReader<RVZ>::Initialize(const std::string& path)
   for (size_t i = 0; i < m_raw_data_entries.size(); ++i)
   {
     const RawDataEntry& entry = m_raw_data_entries[i];
-    const u64 data_size = Common::swap64(entry.data_size);
+    const u64 data_size = dik::byte_utils::swap64(entry.data_size);
     if (data_size != 0)
-      m_data_entries.emplace(Common::swap64(entry.data_offset) + data_size, DataEntry(i));
+      m_data_entries.emplace(dik::byte_utils::swap64(entry.data_offset) + data_size, DataEntry(i));
   }
 
-  const u32 number_of_group_entries = Common::swap32(m_header_2.number_of_group_entries);
+  const u32 number_of_group_entries = dik::byte_utils::swap32(m_header_2.number_of_group_entries);
   m_group_entries.resize(number_of_group_entries);
   Chunk& group_entries =
-      ReadCompressedData(Common::swap64(m_header_2.group_entries_offset),
-                         Common::swap32(m_header_2.group_entries_size),
+      ReadCompressedData(dik::byte_utils::swap64(m_header_2.group_entries_offset),
+                         dik::byte_utils::swap32(m_header_2.group_entries_size),
                          number_of_group_entries * sizeof(GroupEntry), m_compression_type);
   if (!group_entries.ReadAll(&m_group_entries))
     return false;
@@ -254,10 +254,10 @@ bool WIARVZFileReader<RVZ>::HasDataOverlap() const
     const std::array<PartitionDataEntry, 2>& entries = m_partition_entries[i].data_entries;
     for (size_t j = 0; j < entries.size(); ++j)
     {
-      if (Common::swap32(entries[j].number_of_sectors) == 0)
+      if (dik::byte_utils::swap32(entries[j].number_of_sectors) == 0)
         continue;
 
-      const u64 data_offset = Common::swap32(entries[j].first_sector) * VolumeWii::BLOCK_TOTAL_SIZE;
+      const u64 data_offset = dik::byte_utils::swap32(entries[j].first_sector) * VolumeWii::BLOCK_TOTAL_SIZE;
       const auto it = m_data_entries.upper_bound(data_offset);
       if (it == m_data_entries.end())
         return true;  // Not an overlap, but an error nonetheless
@@ -268,10 +268,10 @@ bool WIARVZFileReader<RVZ>::HasDataOverlap() const
 
   for (size_t i = 0; i < m_raw_data_entries.size(); ++i)
   {
-    if (Common::swap64(m_raw_data_entries[i].data_size) == 0)
+    if (dik::byte_utils::swap64(m_raw_data_entries[i].data_size) == 0)
       continue;
 
-    const u64 data_offset = Common::swap64(m_raw_data_entries[i].data_offset);
+    const u64 data_offset = dik::byte_utils::swap64(m_raw_data_entries[i].data_offset);
     const auto it = m_data_entries.upper_bound(data_offset);
     if (it == m_data_entries.end())
       return true;  // Not an overlap, but an error nonetheless
@@ -325,7 +325,7 @@ std::string WIARVZFileReader<RVZ>::GetCompressionMethod() const
 template <bool RVZ>
 bool WIARVZFileReader<RVZ>::Read(u64 offset, u64 size, u8* out_ptr)
 {
-  if (offset + size > Common::swap64(m_header_1.iso_file_size))
+  if (offset + size > dik::byte_utils::swap64(m_header_1.iso_file_size))
     return false;
 
   if (offset < sizeof(WIAHeader2::disc_header))
@@ -337,7 +337,7 @@ bool WIARVZFileReader<RVZ>::Read(u64 offset, u64 size, u8* out_ptr)
     out_ptr += bytes_to_read;
   }
 
-  const u32 chunk_size = Common::swap32(m_header_2.chunk_size);
+  const u32 chunk_size = dik::byte_utils::swap32(m_header_2.chunk_size);
   while (size > 0)
   {
     const auto it = m_data_entries.upper_bound(offset);
@@ -349,23 +349,23 @@ bool WIARVZFileReader<RVZ>::Read(u64 offset, u64 size, u8* out_ptr)
     {
       const PartitionEntry& partition = m_partition_entries[it->second.index];
 
-      const u32 partition_first_sector = Common::swap32(partition.data_entries[0].first_sector);
+      const u32 partition_first_sector = dik::byte_utils::swap32(partition.data_entries[0].first_sector);
       const u64 partition_data_offset = partition_first_sector * VolumeWii::BLOCK_TOTAL_SIZE;
 
       const u32 second_number_of_sectors =
-          Common::swap32(partition.data_entries[1].number_of_sectors);
+          dik::byte_utils::swap32(partition.data_entries[1].number_of_sectors);
       const u32 partition_total_sectors =
-          second_number_of_sectors ? Common::swap32(partition.data_entries[1].first_sector) -
+          second_number_of_sectors ? dik::byte_utils::swap32(partition.data_entries[1].first_sector) -
                                          partition_first_sector + second_number_of_sectors :
-                                     Common::swap32(partition.data_entries[0].number_of_sectors);
+                                     dik::byte_utils::swap32(partition.data_entries[0].number_of_sectors);
 
       for (const PartitionDataEntry& partition_data : partition.data_entries)
       {
         if (size == 0)
           return true;
 
-        const u32 first_sector = Common::swap32(partition_data.first_sector);
-        const u32 number_of_sectors = Common::swap32(partition_data.number_of_sectors);
+        const u32 first_sector = dik::byte_utils::swap32(partition_data.first_sector);
+        const u32 number_of_sectors = dik::byte_utils::swap32(partition_data.number_of_sectors);
 
         const u64 data_offset = first_sector * VolumeWii::BLOCK_TOTAL_SIZE;
         const u64 data_size = number_of_sectors * VolumeWii::BLOCK_TOTAL_SIZE;
@@ -384,7 +384,7 @@ bool WIARVZFileReader<RVZ>::Read(u64 offset, u64 size, u8* out_ptr)
         m_exception_list.clear();
         m_write_to_exception_list = true;
         m_exception_list_last_group_index = std::numeric_limits<u64>::max();
-        Common::ScopeGuard guard([this] { m_write_to_exception_list = false; });
+        dik::ScopeGuard guard([this] { m_write_to_exception_list = false; });
 
         bool hash_exception_error = false;
         if (!m_encryption_cache.EncryptGroups(
@@ -412,9 +412,9 @@ bool WIARVZFileReader<RVZ>::Read(u64 offset, u64 size, u8* out_ptr)
     {
       const RawDataEntry& raw_data = m_raw_data_entries[data.index];
       if (!ReadFromGroups(&offset, &size, &out_ptr, chunk_size, VolumeWii::BLOCK_TOTAL_SIZE,
-                          Common::swap64(raw_data.data_offset), Common::swap64(raw_data.data_size),
-                          Common::swap32(raw_data.group_index),
-                          Common::swap32(raw_data.number_of_groups), 0))
+                          dik::byte_utils::swap64(raw_data.data_offset), dik::byte_utils::swap64(raw_data.data_size),
+                          dik::byte_utils::swap32(raw_data.group_index),
+                          dik::byte_utils::swap32(raw_data.number_of_groups), 0))
       {
         return false;
       }
@@ -433,7 +433,7 @@ WIARVZFileReader<RVZ>::GetPartition(u64 partition_data_offset, u32* partition_fi
     return nullptr;
 
   const PartitionEntry* partition = &m_partition_entries[it->second.index];
-  *partition_first_sector = Common::swap32(partition->data_entries[0].first_sector);
+  *partition_first_sector = dik::byte_utils::swap32(partition->data_entries[0].first_sector);
   if (partition_data_offset != *partition_first_sector * VolumeWii::BLOCK_TOTAL_SIZE)
     return nullptr;
 
@@ -451,8 +451,8 @@ bool WIARVZFileReader<RVZ>::SupportsReadWiiDecrypted(u64 offset, u64 size,
 
   for (const PartitionDataEntry& data : partition->data_entries)
   {
-    const u32 start_sector = Common::swap32(data.first_sector) - partition_first_sector;
-    const u32 end_sector = start_sector + Common::swap32(data.number_of_sectors);
+    const u32 start_sector = dik::byte_utils::swap32(data.first_sector) - partition_first_sector;
+    const u32 end_sector = start_sector + dik::byte_utils::swap32(data.number_of_sectors);
 
     if (offset + size <= end_sector * VolumeWii::BLOCK_DATA_SIZE)
       return true;
@@ -470,7 +470,7 @@ bool WIARVZFileReader<RVZ>::ReadWiiDecrypted(u64 offset, u64 size, u8* out_ptr,
   if (!partition)
     return false;
 
-  const u64 chunk_size = Common::swap32(m_header_2.chunk_size) * VolumeWii::BLOCK_DATA_SIZE /
+  const u64 chunk_size = dik::byte_utils::swap32(m_header_2.chunk_size) * VolumeWii::BLOCK_DATA_SIZE /
                          VolumeWii::BLOCK_TOTAL_SIZE;
 
   for (const PartitionDataEntry& data : partition->data_entries)
@@ -479,12 +479,12 @@ bool WIARVZFileReader<RVZ>::ReadWiiDecrypted(u64 offset, u64 size, u8* out_ptr,
       return true;
 
     const u64 data_offset =
-        (Common::swap32(data.first_sector) - partition_first_sector) * VolumeWii::BLOCK_DATA_SIZE;
-    const u64 data_size = Common::swap32(data.number_of_sectors) * VolumeWii::BLOCK_DATA_SIZE;
+        (dik::byte_utils::swap32(data.first_sector) - partition_first_sector) * VolumeWii::BLOCK_DATA_SIZE;
+    const u64 data_size = dik::byte_utils::swap32(data.number_of_sectors) * VolumeWii::BLOCK_DATA_SIZE;
 
     if (!ReadFromGroups(
             &offset, &size, &out_ptr, chunk_size, VolumeWii::BLOCK_DATA_SIZE, data_offset,
-            data_size, Common::swap32(data.group_index), Common::swap32(data.number_of_groups),
+            data_size, dik::byte_utils::swap32(data.group_index), dik::byte_utils::swap32(data.number_of_groups),
             std::max<u32>(1, static_cast<u32>(chunk_size / VolumeWii::GROUP_DATA_SIZE))))
     {
       return false;
@@ -524,7 +524,7 @@ bool WIARVZFileReader<RVZ>::ReadFromGroups(u64* offset, u64* size, u8** out_ptr,
     chunk_size = std::min(chunk_size, data_size - group_offset_in_data);
 
     const u64 bytes_to_read = std::min(chunk_size - offset_in_group, *size);
-    u32 group_data_size = Common::swap32(group.data_size);
+    u32 group_data_size = dik::byte_utils::swap32(group.data_size);
 
     WIARVZCompressionType compression_type = m_compression_type;
     u32 rvz_packed_size = 0;
@@ -535,7 +535,7 @@ bool WIARVZFileReader<RVZ>::ReadFromGroups(u64* offset, u64* size, u8** out_ptr,
 
       group_data_size &= 0x7FFFFFFF;
 
-      rvz_packed_size = Common::swap32(group.rvz_packed_size);
+      rvz_packed_size = dik::byte_utils::swap32(group.rvz_packed_size);
     }
 
     if (group_data_size == 0)
@@ -544,7 +544,7 @@ bool WIARVZFileReader<RVZ>::ReadFromGroups(u64* offset, u64* size, u8** out_ptr,
     }
     else
     {
-      const u64 group_offset_in_file = static_cast<u64>(Common::swap32(group.data_offset)) << 2;
+      const u64 group_offset_in_file = static_cast<u64>(dik::byte_utils::swap32(group.data_offset)) << 2;
 
       Chunk& chunk =
           ReadCompressedData(group_offset_in_file, group_data_size, chunk_size, compression_type,
@@ -653,7 +653,7 @@ WIARVZFileReader<RVZ>::Chunk::Chunk(File::IOFile* file, u64 offset_in_file, u64 
       m_rvz_packed_size(rvz_packed_size), m_data_offset(data_offset)
 {
   constexpr size_t MAX_SIZE_PER_EXCEPTION_LIST =
-      Common::AlignUp(VolumeWii::BLOCK_HEADER_SIZE, Common::SHA1::DIGEST_LEN) /
+      dik::byte_utils::align_up(VolumeWii::BLOCK_HEADER_SIZE, Common::SHA1::DIGEST_LEN) /
           Common::SHA1::DIGEST_LEN * VolumeWii::BLOCKS_PER_GROUP * sizeof(HashExceptionEntry) +
       sizeof(u16);
 
@@ -694,7 +694,7 @@ bool WIARVZFileReader<RVZ>::Chunk::Read(u64 offset, u64 size, u8* out_ptr)
       // Align the access in an attempt to gain speed. But we don't actually know the
       // block size of the underlying storage device, so we just use the Wii block size.
       bytes_to_read =
-          Common::AlignUp(bytes_to_read + m_offset_in_file, VolumeWii::BLOCK_TOTAL_SIZE) -
+          dik::byte_utils::align_up(bytes_to_read + m_offset_in_file, VolumeWii::BLOCK_TOTAL_SIZE) -
           m_offset_in_file;
 
       // Ensure we don't read too much.
@@ -816,11 +816,11 @@ bool WIARVZFileReader<RVZ>::Chunk::HandleExceptions(const u8* data, size_t bytes
     if (sizeof(u16) + *bytes_used > bytes_written)
       return true;
 
-    const u16 exceptions = Common::swap16(data + *bytes_used);
+    const u16 exceptions = dik::byte_utils::swap16(data + *bytes_used);
 
     size_t exception_list_size = exceptions * sizeof(HashExceptionEntry) + sizeof(u16);
     if (align && m_exception_lists == 1)
-      exception_list_size = Common::AlignUp(*bytes_used + exception_list_size, 4) - *bytes_used;
+      exception_list_size = dik::byte_utils::align_up(*bytes_used + exception_list_size, 4) - *bytes_used;
 
     if (exception_list_size + *bytes_used > bytes_allocated)
     {
@@ -848,9 +848,9 @@ void WIARVZFileReader<RVZ>::Chunk::GetHashExceptions(
   const u8* data = data_start;
 
   for (u64 i = exception_list_index; i > 0; --i)
-    data += Common::swap16(data) * sizeof(HashExceptionEntry) + sizeof(u16);
+    data += dik::byte_utils::swap16(data) * sizeof(HashExceptionEntry) + sizeof(u16);
 
-  const u16 exceptions = Common::swap16(data);
+  const u16 exceptions = dik::byte_utils::swap16(data);
   data += sizeof(u16);
 
   for (size_t i = 0; i < exceptions; ++i)
@@ -859,7 +859,7 @@ void WIARVZFileReader<RVZ>::Chunk::GetHashExceptions(
     data += sizeof(HashExceptionEntry);
 
     u16& offset = exception_list->back().offset;
-    offset = Common::swap16(Common::swap16(offset) + additional_offset);
+    offset = dik::byte_utils::swap16(dik::byte_utils::swap16(offset) + additional_offset);
   }
 
   ASSERT(data <= data_start + (m_compressed_exception_lists ? m_out_bytes_used_for_exceptions :
@@ -879,7 +879,7 @@ bool WIARVZFileReader<RVZ>::ApplyHashExceptions(
 {
   for (const HashExceptionEntry& exception : exception_list)
   {
-    const u16 offset = Common::swap16(exception.offset);
+    const u16 offset = dik::byte_utils::swap16(exception.offset);
 
     const size_t block_index = offset / VolumeWii::BLOCK_HEADER_SIZE;
     if (block_index > VolumeWii::BLOCKS_PER_GROUP)
@@ -900,7 +900,7 @@ template <bool RVZ>
 bool WIARVZFileReader<RVZ>::PadTo4(File::IOFile* file, u64* bytes_written)
 {
   constexpr u32 ZEROES = 0;
-  const u64 bytes_to_write = Common::AlignUp(*bytes_written, 4) - *bytes_written;
+  const u64 bytes_to_write = dik::byte_utils::align_up(*bytes_written, 4) - *bytes_written;
   if (bytes_to_write == 0)
     return true;
 
@@ -923,12 +923,12 @@ void WIARVZFileReader<RVZ>::AddRawDataEntry(u64 offset, u64 size, int chunk_size
     return;
 
   const u32 group_index = *total_groups;
-  const u32 groups = static_cast<u32>(Common::AlignUp(size, chunk_size) / chunk_size);
+  const u32 groups = static_cast<u32>(dik::byte_utils::align_up(size, chunk_size) / chunk_size);
   *total_groups += groups;
 
   data_entries->emplace_back(raw_data_entries->size());
-  raw_data_entries->emplace_back(RawDataEntry{Common::swap64(offset), Common::swap64(size),
-                                              Common::swap32(group_index), Common::swap32(groups)});
+  raw_data_entries->emplace_back(RawDataEntry{dik::byte_utils::swap64(offset), dik::byte_utils::swap64(size),
+                                              dik::byte_utils::swap32(group_index), dik::byte_utils::swap32(groups)});
 }
 
 template <bool RVZ>
@@ -937,14 +937,14 @@ typename WIARVZFileReader<RVZ>::PartitionDataEntry WIARVZFileReader<RVZ>::Create
     const std::vector<PartitionEntry>& partition_entries, std::vector<DataEntry>* data_entries)
 {
   const u32 group_index = *total_groups;
-  const u64 rounded_size = Common::AlignDown(size, VolumeWii::BLOCK_TOTAL_SIZE);
-  const u32 groups = static_cast<u32>(Common::AlignUp(rounded_size, chunk_size) / chunk_size);
+  const u64 rounded_size = dik::byte_utils::align_down(size, VolumeWii::BLOCK_TOTAL_SIZE);
+  const u32 groups = static_cast<u32>(dik::byte_utils::align_up(rounded_size, chunk_size) / chunk_size);
   *total_groups += groups;
 
   data_entries->emplace_back(partition_entries.size(), index);
-  return PartitionDataEntry{Common::swap32(offset / VolumeWii::BLOCK_TOTAL_SIZE),
-                            Common::swap32(size / VolumeWii::BLOCK_TOTAL_SIZE),
-                            Common::swap32(group_index), Common::swap32(groups)};
+  return PartitionDataEntry{dik::byte_utils::swap32(offset / VolumeWii::BLOCK_TOTAL_SIZE),
+                            dik::byte_utils::swap32(size / VolumeWii::BLOCK_TOTAL_SIZE),
+                            dik::byte_utils::swap32(group_index), dik::byte_utils::swap32(groups)};
 }
 
 template <bool RVZ>
@@ -1039,7 +1039,7 @@ ConversionResultCode WIARVZFileReader<RVZ>::SetUpDataEntriesForWriting(
 
     const u64 fst_end = volume->PartitionOffsetToRawOffset(*fst_offset + *fst_size, partition);
     const u64 split_point = std::min(
-        data_end, Common::AlignUp(fst_end - data_start, VolumeWii::GROUP_TOTAL_SIZE) + data_start);
+        data_end, dik::byte_utils::align_up(fst_end - data_start, VolumeWii::GROUP_TOTAL_SIZE) + data_start);
 
     PartitionEntry partition_entry;
     partition_entry.partition_key = ticket.GetTitleKey();
@@ -1051,8 +1051,8 @@ ConversionResultCode WIARVZFileReader<RVZ>::SetUpDataEntriesForWriting(
     // Note: We can't simply set last_partition_end_offset to data_end,
     // because construct_partition_data_entry may have rounded it
     last_partition_end_offset =
-        (Common::swap32(partition_entry.data_entries[1].first_sector) +
-         Common::swap32(partition_entry.data_entries[1].number_of_sectors)) *
+        (dik::byte_utils::swap32(partition_entry.data_entries[1].first_sector) +
+         dik::byte_utils::swap32(partition_entry.data_entries[1].number_of_sectors)) *
         VolumeWii::BLOCK_TOTAL_SIZE;
 
     partition_entries->emplace_back(std::move(partition_entry));
@@ -1212,7 +1212,7 @@ static void RVZPack(const u8* in, OutputParametersEntry* out, u64 bytes_per_chun
     data_offset += zeroes;
 
     const size_t bytes_to_read =
-        std::min(Common::AlignUp(data_offset + 1, VolumeWii::BLOCK_TOTAL_SIZE) - data_offset,
+        std::min(dik::byte_utils::align_up(data_offset + 1, VolumeWii::BLOCK_TOTAL_SIZE) - data_offset,
                  total_size - position);
 
     const size_t data_offset_mod = static_cast<size_t>(data_offset % VolumeWii::BLOCK_TOTAL_SIZE);
@@ -1297,7 +1297,7 @@ static void RVZPack(const u8* in, OutputParametersEntry* out, u64 bytes_per_chun
       {
         const u8* ptr = in + current_offset;
 
-        PushBack(&entry.main_data, Common::swap32(static_cast<u32>(non_junk_bytes)));
+        PushBack(&entry.main_data, dik::byte_utils::swap32(static_cast<u32>(non_junk_bytes)));
         PushBack(&entry.main_data, ptr, ptr + non_junk_bytes);
 
         current_offset += non_junk_bytes;
@@ -1307,7 +1307,7 @@ static void RVZPack(const u8* in, OutputParametersEntry* out, u64 bytes_per_chun
       const u64 junk_bytes = next_junk_end - current_offset;
       if (junk_bytes > 0)
       {
-        PushBack(&entry.main_data, Common::swap32(static_cast<u32>(junk_bytes) | 0x80000000));
+        PushBack(&entry.main_data, dik::byte_utils::swap32(static_cast<u32>(junk_bytes) | 0x80000000));
         PushBack(&entry.main_data, *seed);
 
         current_offset += junk_bytes;
@@ -1361,7 +1361,7 @@ WIARVZFileReader<RVZ>::ProcessAndCompress(CompressThreadState* state, CompressPa
 
     auto aes_context = Common::AES::CreateContextDecrypt(partition_entry.partition_key.data());
 
-    const u64 groups = Common::AlignUp(parameters.data.size(), VolumeWii::GROUP_TOTAL_SIZE) /
+    const u64 groups = dik::byte_utils::align_up(parameters.data.size(), VolumeWii::GROUP_TOTAL_SIZE) /
                        VolumeWii::GROUP_TOTAL_SIZE;
 
     ASSERT(parameters.data.size() % VolumeWii::BLOCK_TOTAL_SIZE == 0);
@@ -1371,7 +1371,7 @@ WIARVZFileReader<RVZ>::ProcessAndCompress(CompressThreadState* state, CompressPa
                                      exception_lists_per_chunk * VolumeWii::BLOCKS_PER_GROUP :
                                      VolumeWii::BLOCKS_PER_GROUP / chunks_per_wii_group;
 
-    const u64 chunks = Common::AlignUp(blocks, blocks_per_chunk) / blocks_per_chunk;
+    const u64 chunks = dik::byte_utils::align_up(blocks, blocks_per_chunk) / blocks_per_chunk;
 
     const u64 in_data_per_chunk = blocks_per_chunk * VolumeWii::BLOCK_TOTAL_SIZE;
     const u64 out_data_per_chunk = blocks_per_chunk * VolumeWii::BLOCK_DATA_SIZE;
@@ -1474,7 +1474,7 @@ WIARVZFileReader<RVZ>::ProcessAndCompress(CompressThreadState* state, CompressPa
               ASSERT(hash_offset <= std::numeric_limits<u16>::max());
 
               HashExceptionEntry& exception = exception_lists[exception_list_index].emplace_back();
-              exception.offset = static_cast<u16>(Common::swap16(hash_offset));
+              exception.offset = static_cast<u16>(dik::byte_utils::swap16(hash_offset));
               std::memcpy(exception.hash.data(), desired_hash, Common::SHA1::DIGEST_LEN);
             }
           };
@@ -1561,7 +1561,7 @@ WIARVZFileReader<RVZ>::ProcessAndCompress(CompressThreadState* state, CompressPa
         const std::vector<HashExceptionEntry>& in = exception_lists[i];
         std::vector<u8>& out = entry.exception_lists;
 
-        const u16 exceptions = Common::swap16(static_cast<u16>(in.size()));
+        const u16 exceptions = dik::byte_utils::swap16(static_cast<u16>(in.size()));
         PushBack(&out, exceptions);
         for (const HashExceptionEntry& exception : in)
           PushBack(&out, exception);
@@ -1648,7 +1648,7 @@ WIARVZFileReader<RVZ>::ProcessAndCompress(CompressThreadState* state, CompressPa
     {
       size_t uncompressed_size = entry.main_data.size();
       if (compressed_exception_lists)
-        uncompressed_size += Common::AlignUp(entry.exception_lists.size(), 4);
+        uncompressed_size += dik::byte_utils::align_up(entry.exception_lists.size(), 4);
 
       compressed = state->compressor && state->compressor->GetSize() < uncompressed_size;
       entry.compressed = compressed;
@@ -1694,15 +1694,15 @@ ConversionResultCode WIARVZFileReader<RVZ>::Output(std::vector<OutputParametersE
       return ConversionResultCode::InternalError;
 
     ASSERT((*bytes_written & 3) == 0);
-    group_entry->data_offset = Common::swap32(static_cast<u32>(*bytes_written >> 2));
+    group_entry->data_offset = dik::byte_utils::swap32(static_cast<u32>(*bytes_written >> 2));
 
     u32 data_size = static_cast<u32>(entry.exception_lists.size() + entry.main_data.size());
     if constexpr (RVZ)
     {
       data_size = (data_size & 0x7FFFFFFF) | (static_cast<u32>(entry.compressed) << 31);
-      group_entry->rvz_packed_size = Common::swap32(static_cast<u32>(entry.rvz_packed_size));
+      group_entry->rvz_packed_size = dik::byte_utils::swap32(static_cast<u32>(entry.rvz_packed_size));
     }
-    group_entry->data_size = Common::swap32(data_size);
+    group_entry->data_size = dik::byte_utils::swap32(data_size);
 
     if (!outfile->WriteArray(entry.exception_lists.data(), entry.exception_lists.size()))
       return ConversionResultCode::WriteFailed;
@@ -1735,8 +1735,8 @@ ConversionResultCode WIARVZFileReader<RVZ>::RunCallback(size_t groups_written, u
   if (bytes_read != 0)
     ratio = static_cast<int>(100 * bytes_written / bytes_read);
 
-  const std::string text = Common::FmtFormatT("{0} of {1} blocks. Compression ratio {2}%",
-                                              groups_written, total_groups, ratio);
+  const std::string text = dik::string_utils::format_localized(
+      "{0} of {1} blocks. Compression ratio {2}%", groups_written, total_groups, ratio);
 
   const float completion = static_cast<float>(bytes_read) / iso_size;
 
@@ -1829,7 +1829,7 @@ WIARVZFileReader<RVZ>::Convert(BlobReader* infile, const VolumeDisc* infile_volu
       upper_bound += group_entries_size;
 
     // This alignment is also somewhat arbitrary.
-    return Common::AlignUp(upper_bound, VolumeWii::BLOCK_TOTAL_SIZE);
+    return dik::byte_utils::align_up(upper_bound, VolumeWii::BLOCK_TOTAL_SIZE);
   }();
 
   std::vector<u8> buffer;
@@ -1895,27 +1895,27 @@ WIARVZFileReader<RVZ>::Convert(BlobReader* infile, const VolumeDisc* infile_volu
       const PartitionDataEntry& partition_data_entry =
           partition_entry.data_entries[data_entry.partition_data_index];
 
-      first_group = Common::swap32(partition_data_entry.group_index);
-      last_group = first_group + Common::swap32(partition_data_entry.number_of_groups);
+      first_group = dik::byte_utils::swap32(partition_data_entry.group_index);
+      last_group = first_group + dik::byte_utils::swap32(partition_data_entry.number_of_groups);
 
-      const u32 first_sector = Common::swap32(partition_data_entry.first_sector);
+      const u32 first_sector = dik::byte_utils::swap32(partition_data_entry.first_sector);
       data_offset = first_sector * VolumeWii::BLOCK_TOTAL_SIZE;
       data_size =
-          Common::swap32(partition_data_entry.number_of_sectors) * VolumeWii::BLOCK_TOTAL_SIZE;
+          dik::byte_utils::swap32(partition_data_entry.number_of_sectors) * VolumeWii::BLOCK_TOTAL_SIZE;
 
       const u32 block_in_partition =
-          first_sector - Common::swap32(partition_entry.data_entries[0].first_sector);
+          first_sector - dik::byte_utils::swap32(partition_entry.data_entries[0].first_sector);
       data_offset_in_partition = block_in_partition * VolumeWii::BLOCK_DATA_SIZE;
     }
     else
     {
       const RawDataEntry& raw_data_entry = raw_data_entries[data_entry.index];
 
-      first_group = Common::swap32(raw_data_entry.group_index);
-      last_group = first_group + Common::swap32(raw_data_entry.number_of_groups);
+      first_group = dik::byte_utils::swap32(raw_data_entry.group_index);
+      last_group = first_group + dik::byte_utils::swap32(raw_data_entry.number_of_groups);
 
-      data_offset = Common::swap64(raw_data_entry.data_offset);
-      data_size = Common::swap64(raw_data_entry.data_size);
+      data_offset = dik::byte_utils::swap64(raw_data_entry.data_offset);
+      data_size = dik::byte_utils::swap64(raw_data_entry.data_size);
 
       const u64 skipped_data = data_offset % VolumeWii::BLOCK_TOTAL_SIZE;
       data_offset -= skipped_data;
@@ -1959,7 +1959,7 @@ WIARVZFileReader<RVZ>::Convert(BlobReader* infile, const VolumeDisc* infile_volu
         data_offset_in_partition += bytes_to_read;
       }
 
-      groups_processed += Common::AlignUp(bytes_to_read, chunk_size) / chunk_size;
+      groups_processed += dik::byte_utils::align_up(bytes_to_read, chunk_size) / chunk_size;
     }
 
     ASSERT(data_size == 0);
@@ -2022,36 +2022,36 @@ WIARVZFileReader<RVZ>::Convert(BlobReader* infile, const VolumeDisc* infile_volu
       disc_type = 2;
   }
 
-  header_2.disc_type = Common::swap32(disc_type);
-  header_2.compression_type = Common::swap32(static_cast<u32>(compression_type));
+  header_2.disc_type = dik::byte_utils::swap32(disc_type);
+  header_2.compression_type = dik::byte_utils::swap32(static_cast<u32>(compression_type));
   header_2.compression_level =
-      static_cast<s32>(Common::swap32(static_cast<u32>(compression_level)));
-  header_2.chunk_size = Common::swap32(static_cast<u32>(chunk_size));
+      static_cast<s32>(dik::byte_utils::swap32(static_cast<u32>(compression_level)));
+  header_2.chunk_size = dik::byte_utils::swap32(static_cast<u32>(chunk_size));
 
-  header_2.number_of_partition_entries = Common::swap32(static_cast<u32>(partition_entries.size()));
-  header_2.partition_entry_size = Common::swap32(sizeof(PartitionEntry));
-  header_2.partition_entries_offset = Common::swap64(partition_entries_offset);
+  header_2.number_of_partition_entries = dik::byte_utils::swap32(static_cast<u32>(partition_entries.size()));
+  header_2.partition_entry_size = dik::byte_utils::swap32(sizeof(PartitionEntry));
+  header_2.partition_entries_offset = dik::byte_utils::swap64(partition_entries_offset);
 
   header_2.partition_entries_hash = Common::SHA1::CalculateDigest(partition_entries);
 
-  header_2.number_of_raw_data_entries = Common::swap32(static_cast<u32>(raw_data_entries.size()));
-  header_2.raw_data_entries_offset = Common::swap64(raw_data_entries_offset);
+  header_2.number_of_raw_data_entries = dik::byte_utils::swap32(static_cast<u32>(raw_data_entries.size()));
+  header_2.raw_data_entries_offset = dik::byte_utils::swap64(raw_data_entries_offset);
   header_2.raw_data_entries_size =
-      Common::swap32(static_cast<u32>(compressed_raw_data_entries->size()));
+      dik::byte_utils::swap32(static_cast<u32>(compressed_raw_data_entries->size()));
 
-  header_2.number_of_group_entries = Common::swap32(static_cast<u32>(group_entries.size()));
-  header_2.group_entries_offset = Common::swap64(group_entries_offset);
-  header_2.group_entries_size = Common::swap32(static_cast<u32>(compressed_group_entries->size()));
+  header_2.number_of_group_entries = dik::byte_utils::swap32(static_cast<u32>(group_entries.size()));
+  header_2.group_entries_offset = dik::byte_utils::swap64(group_entries_offset);
+  header_2.group_entries_size = dik::byte_utils::swap32(static_cast<u32>(compressed_group_entries->size()));
 
   header_1.magic = RVZ ? RVZ_MAGIC : WIA_MAGIC;
-  header_1.version = Common::swap32(RVZ ? RVZ_VERSION : WIA_VERSION);
+  header_1.version = dik::byte_utils::swap32(RVZ ? RVZ_VERSION : WIA_VERSION);
   header_1.version_compatible =
-      Common::swap32(RVZ ? RVZ_VERSION_WRITE_COMPATIBLE : WIA_VERSION_WRITE_COMPATIBLE);
-  header_1.header_2_size = Common::swap32(sizeof(WIAHeader2));
+      dik::byte_utils::swap32(RVZ ? RVZ_VERSION_WRITE_COMPATIBLE : WIA_VERSION_WRITE_COMPATIBLE);
+  header_1.header_2_size = dik::byte_utils::swap32(sizeof(WIAHeader2));
   header_1.header_2_hash =
       Common::SHA1::CalculateDigest(reinterpret_cast<const u8*>(&header_2), sizeof(header_2));
-  header_1.iso_file_size = Common::swap64(infile->GetDataSize());
-  header_1.wia_file_size = Common::swap64(outfile->GetSize());
+  header_1.iso_file_size = dik::byte_utils::swap64(infile->GetDataSize());
+  header_1.wia_file_size = dik::byte_utils::swap64(outfile->GetSize());
   header_1.header_1_hash = Common::SHA1::CalculateDigest(reinterpret_cast<const u8*>(&header_1),
                                                          offsetof(WIAHeader1, header_1_hash));
 

@@ -20,8 +20,8 @@
 #include <string>
 #include <vector>
 
+#include "discimagekit/byte_utils.h"
 #include "discimagekit/types.h"
-#include "Common/Swap.h"
 
 namespace DiscIO
 {
@@ -84,7 +84,7 @@ public:
     T temp;
     if (!Read(offset, sizeof(T), reinterpret_cast<u8*>(&temp)))
       return std::nullopt;
-    return Common::FromBigEndian(temp);
+    return dik::byte_utils::from_big_endian(temp);
   }
 
   virtual bool SupportsReadWiiDecrypted(u64 offset, u64 size, u64 partition_data_offset) const

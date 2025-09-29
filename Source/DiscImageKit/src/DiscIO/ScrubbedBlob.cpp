@@ -8,7 +8,7 @@
 #include <string>
 #include <utility>
 
-#include "Common/Align.h"
+#include "discimagekit/byte_utils.h"
 #include "DiscIO/Blob.h"
 #include "DiscIO/DiscScrubber.h"
 #include "DiscIO/VolumeDisc.h"
@@ -48,7 +48,7 @@ bool ScrubbedBlob::Read(u64 offset, u64 size, u8* out_ptr)
   {
     constexpr size_t CLUSTER_SIZE = DiscScrubber::CLUSTER_SIZE;
     const u64 bytes_to_read =
-        std::min(Common::AlignDown(offset + CLUSTER_SIZE, CLUSTER_SIZE) - offset, size);
+        std::min(dik::byte_utils::align_down(offset + CLUSTER_SIZE, CLUSTER_SIZE) - offset, size);
 
     if (m_scrubber.CanBlockBeScrubbed(offset))
     {

@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "discimagekit/types.h"
-#include "Common/Lazy.h"
+#include "discimagekit/lazy.h"
 #include "DiscIO/Filesystem.h"
 #include "DiscIO/Volume.h"
 #include "DiscIO/VolumeDisc.h"
@@ -106,9 +106,9 @@ private:
   static constexpr size_t BNR1_SIZE = sizeof(GCBanner) - sizeof(GCBannerInformation) * 5;
   static constexpr size_t BNR2_SIZE = sizeof(GCBanner);
 
-  Common::Lazy<ConvertedGCBanner> m_converted_banner;
+  dik::Lazy<ConvertedGCBanner> m_converted_banner;
 
-  Common::Lazy<std::unique_ptr<FileSystem>> m_file_system;
+  dik::Lazy<std::unique_ptr<FileSystem>> m_file_system;
 
   std::unique_ptr<BlobReader> m_reader;
 
