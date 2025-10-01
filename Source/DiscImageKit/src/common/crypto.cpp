@@ -37,7 +37,7 @@ public:
     if (mbedtls_aes_crypt_cbc(const_cast<mbedtls_aes_context*>(&m_ctx),
                                m_mode == Common::AES::Mode::Encrypt ? MBEDTLS_AES_ENCRYPT :
                                                                        MBEDTLS_AES_DECRYPT,
-                               len, iv ? iv_tmp.data() : nullptr, buf_in, buf_out) != 0)
+                               len, iv_tmp.data(), buf_in, buf_out) != 0)
     {
       return false;
     }

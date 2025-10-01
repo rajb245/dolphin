@@ -307,9 +307,9 @@ std::vector<std::string> split_string(std::string_view str, char delimiter)
 
 std::string_view strip_whitespace(std::string_view str)
 {
-  while (!str.empty() && std::isspace(to_unsigned(str.front()), std::locale::classic()))
+  while (!str.empty() && std::isspace(static_cast<unsigned char>(str.front())))
     str.remove_prefix(1);
-  while (!str.empty() && std::isspace(to_unsigned(str.back()), std::locale::classic()))
+  while (!str.empty() && std::isspace(static_cast<unsigned char>(str.back())))
     str.remove_suffix(1);
   return str;
 }
@@ -354,12 +354,12 @@ bool case_insensitive_equals(std::string_view a, std::string_view b)
 
 char to_lower(char ch)
 {
-  return static_cast<char>(std::tolower(to_unsigned(ch), std::locale::classic()));
+  return std::tolower(static_cast<unsigned char>(ch));
 }
 
 char to_upper(char ch)
 {
-  return static_cast<char>(std::toupper(to_unsigned(ch), std::locale::classic()));
+  return std::toupper(static_cast<unsigned char>(ch));
 }
 
 void to_lower(std::string& str)
@@ -376,12 +376,12 @@ void to_upper(std::string& str)
 
 bool is_printable(char c)
 {
-  return std::isprint(to_unsigned(c), std::locale::classic()) != 0;
+  return std::isprint(static_cast<unsigned char>(c)) != 0;
 }
 
 bool is_alnum(char c)
 {
-  return std::isalnum(to_unsigned(c), std::locale::classic()) != 0;
+  return std::isalnum(static_cast<unsigned char>(c)) != 0;
 }
 
 void register_translator(translator_t translator)
